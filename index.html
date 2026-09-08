@@ -315,10 +315,14 @@ function renderMore(){
 }
 function openSheet(title,body,handler){
   document.getElementById('sheetTitle').textContent=title;document.getElementById('sheetBody').innerHTML=body;
+  document.querySelector('#sheetForm .actions').style.display='flex';
   document.getElementById('overlay').classList.add('show');
   document.getElementById('sheetForm').onsubmit=e=>{e.preventDefault();handler(Object.fromEntries(new FormData(e.target)));closeSheet();save();render()}
 }
-function closeSheet(){document.getElementById('overlay').classList.remove('show')}
+function closeSheet(){
+  document.getElementById('overlay').classList.remove('show');
+  document.querySelector('#sheetForm .actions').style.display='flex';
+}
 function buildingForm(b={}){
   return '<div class="form"><label>Building name<input name="name" required value="'+esc(b.name||'')+'"></label><label>Address<input name="address" value="'+esc(b.address||'')+'"></label><div class="form two"><label>Entrance code<input name="entranceCode" value="'+esc(b.entranceCode||'')+'"></label><label>Access notes<input name="accessNotes" value="'+esc(b.accessNotes||'')+'"></label></div><label>Notes<textarea name="notes">'+esc(b.notes||'')+'</textarea></label></div>'
 }
@@ -374,18 +378,22 @@ const TASK_TEMPLATES=[
 {name:'Furniture',category:'Furniture',priority:'Normal',title:'Furniture repair',problemTag:'Furniture'}];
 function chooseTemplate(apartmentId=''){
   if(!data.apartments.length){alert('Add an apartment first.');route='properties';render();return}
-  let body='<div class="template-grid">'+TASK_TEMPLATES.map((t,i)=>'<button type="button" class="template-btn" onclick="useTemplate('+i+',\''+apartmentId+'\')">'+esc(t.name)+'<small>'+esc(t.category)+' • '+esc(t.priority)+'</small></button>').join('')+'</div><div style="margin-top:12px"><button type="button" class="btn soft" onclick="closeSheet();newTask(\''+apartmentId+'\')">Blank task</button></div>';
+  let body='<div class="template-grid">'+TASK_TEMPLATES.map((t,i)=>'<button type="button" class="template-btn" onclick="useTemplate('+i+',\''+apartmentId+'\')">'+esc(t.name)+'<small>'+esc(t.category)+' • '+esc(t.priority)+'</small></button>').join('')+'</div><div style="margin-top:12px"><button type="button" class="btn soft" onclick="customTask(\''+apartmentId+'\')"><strong>Custom / Blank task</strong><br><span class="muted">Write the fault yourself</span></button></div>';
   openSheet('Quick Task Templates',body,()=>{});
   document.querySelector('#sheetForm .actions').style.display='none';
 }
 function useTemplate(index,apartmentId=''){
-  let t=TASK_TEMPLATES[index];closeSheet();document.querySelector('#sheetForm .actions').style.display='flex';
+  let t=TASK_TEMPLATES[index];closeSheet();
   openSheet('New Task',taskForm(t,apartmentId),v=>data.tasks.push({id:id(),createdAt:Date.now(),...t,...v}));
+}
+function customTask(apartmentId=''){
+  closeSheet();
+  newTask(apartmentId);
 }
 
 function newTask(apartmentId=''){
   if(!data.apartments.length){alert('Add an apartment first.');route='properties';render();return}
-  openSheet('New Task',taskForm({},apartmentId),v=>data.tasks.push({id:id(),createdAt:Date.now(),...v}))
+  openSheet('New Custom Task',taskForm({},apartmentId),v=>data.tasks.push({id:id(),createdAt:Date.now(),...v}))
 }
 function editTask(i){let t=data.tasks.find(x=>x.id===i);openSheet('Edit Task',taskForm(t),v=>Object.assign(t,v))}
 function showBuilding(i){
