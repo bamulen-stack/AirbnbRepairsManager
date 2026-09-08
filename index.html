@@ -330,6 +330,33 @@ function apartmentForm(a={}){
 }
 function newApartment(buildingId=''){openSheet('New Apartment',apartmentForm({buildingId}),v=>data.apartments.push({id:id(),...v}))}
 function editApartment(i){let a=apt(i);openSheet('Edit Apartment',apartmentForm(a),v=>Object.assign(a,v))}
+function deleteApartment(i){
+  let a=apt(i);
+  if(!a)return;
+  let tasks=data.tasks.filter(t=>t.apartmentId===i);
+  let taskIds=new Set(tasks.map(t=>t.id));
+  let photos=(data.photos||[]).filter(p=>taskIds.has(p.taskId));
+  let purchases=(data.purchases||[]).filter(p=>p.apartmentId===i||taskIds.has(p.taskId));
+  let quotations=(data.quotations||[]).filter(q=>q.apartmentId===i);
+  let msg='Delete "'+a.name+'"?\n\nThis will also delete:\n'
+    +tasks.length+' task(s)\n'
+    +photos.length+' photo(s)\n'
+    +purchases.length+' material purchase(s)\n'
+    +quotations.length+' quotation(s)\n\n'
+    +'This action cannot be undone.';
+  if(!confirm(msg))return;
+  if(!confirm('Final confirmation: permanently delete this apartment and all related records?'))return;
+
+  data.tasks=data.tasks.filter(t=>t.apartmentId!==i);
+  data.photos=(data.photos||[]).filter(p=>!taskIds.has(p.taskId));
+  data.purchases=(data.purchases||[]).filter(p=>p.apartmentId!==i&&!taskIds.has(p.taskId));
+  data.quotations=(data.quotations||[]).filter(q=>q.apartmentId!==i);
+  data.apartments=data.apartments.filter(x=>x.id!==i);
+  save();
+  route='properties';
+  selected=null;
+  render();
+}
 function taskForm(t={},apartmentId=''){
   let opts=data.apartments.map(a=>'<option value="'+a.id+'" '+((t.apartmentId||apartmentId)===a.id?'selected':'')+'>'+esc(a.name)+(a.buildingId?' — '+esc(bld(a.buildingId)?.name||''):'')+'</option>').join('');
   let options=(arr,val)=>arr.map(x=>'<option '+(val===x?'selected':'')+'>'+x+'</option>').join('');
@@ -379,7 +406,7 @@ function maintenanceHistoryHtml(apartmentId){
 function showApartment(i){
   let a=apt(i);selected=i;document.getElementById('pageTitle').textContent=a.name;let probs=recurringProblems(i);
   let health=probs.length?'<div class="card health-card"><div class="card-title">Apartment Health</div><p class="muted">Recurring issues detected:</p>'+probs.map(x=>'<div class="detail-line"><b>'+esc(x[0])+'</b> • '+x[1]+' times</div>').join('')+'</div>':'<div class="card health-card"><div class="card-title">Apartment Health</div><p class="muted">No recurring problems detected yet.</p></div>';
-  document.getElementById('view').innerHTML='<div class="card"><div class="row space"><div><div class="card-title">'+esc(a.name)+'</div><div class="meta">'+esc(a.buildingId?(bld(a.buildingId)?.name||''):'Standalone apartment')+'</div></div><button class="small-btn soft" onclick="editApartment(\''+i+'\')">Edit</button></div><div class="detail-grid">'+(a.address?'<div class="detail-line">📍 '+esc(a.address)+(a.floor?' • Floor '+esc(a.floor):'')+'</div>':'')+(a.lockboxCode?'<div class="detail-line">🔐 Lockbox: <span class="code">'+esc(a.lockboxCode)+'</span> '+esc(a.lockboxLocation||'')+'</div>':'')+(a.doorCodes?'<div class="detail-line">🚪 Access: <span class="code">'+esc(a.doorCodes)+'</span></div>':'')+(a.wifiInfo?'<div class="detail-line">📶 Wi‑Fi: '+esc(a.wifiInfo)+'</div>':'')+(a.panelLocation?'<div class="detail-line">⚡ Electrical panel: '+esc(a.panelLocation)+'</div>':'')+(a.waterValve?'<div class="detail-line">🚰 Main water valve: '+esc(a.waterValve)+'</div>':'')+(a.waterHeater?'<div class="detail-line">♨ Water heater: '+esc(a.waterHeater)+'</div>':'')+(a.acInfo?'<div class="detail-line">❄ A/C: '+esc(a.acInfo)+'</div>':'')+(a.technicalNotes?'<div class="detail-line">🛠 '+esc(a.technicalNotes)+'</div>':'')+'</div></div>'+health+'<div class="section-head"><h2>Maintenance History</h2><button class="small-btn primary" onclick="chooseTemplate(\''+i+'\')">+ Task</button></div>'+maintenanceHistoryHtml(i)+'<button class="btn soft" onclick="route=\'properties\';render()">← Back</button>';
+  document.getElementById('view').innerHTML='<div class="card"><div class="row space"><div><div class="card-title">'+esc(a.name)+'</div><div class="meta">'+esc(a.buildingId?(bld(a.buildingId)?.name||''):'Standalone apartment')+'</div></div><button class="small-btn soft" onclick="editApartment(\''+i+'\')">Edit</button></div><div class="detail-grid">'+(a.address?'<div class="detail-line">📍 '+esc(a.address)+(a.floor?' • Floor '+esc(a.floor):'')+'</div>':'')+(a.lockboxCode?'<div class="detail-line">🔐 Lockbox: <span class="code">'+esc(a.lockboxCode)+'</span> '+esc(a.lockboxLocation||'')+'</div>':'')+(a.doorCodes?'<div class="detail-line">🚪 Access: <span class="code">'+esc(a.doorCodes)+'</span></div>':'')+(a.wifiInfo?'<div class="detail-line">📶 Wi‑Fi: '+esc(a.wifiInfo)+'</div>':'')+(a.panelLocation?'<div class="detail-line">⚡ Electrical panel: '+esc(a.panelLocation)+'</div>':'')+(a.waterValve?'<div class="detail-line">🚰 Main water valve: '+esc(a.waterValve)+'</div>':'')+(a.waterHeater?'<div class="detail-line">♨ Water heater: '+esc(a.waterHeater)+'</div>':'')+(a.acInfo?'<div class="detail-line">❄ A/C: '+esc(a.acInfo)+'</div>':'')+(a.technicalNotes?'<div class="detail-line">🛠 '+esc(a.technicalNotes)+'</div>':'')+'</div></div>'+health+'<div class="section-head"><h2>Maintenance History</h2><button class="small-btn primary" onclick="chooseTemplate(\''+i+'\')">+ Task</button></div>'+maintenanceHistoryHtml(i)+'<div style="margin-top:18px;padding-top:16px;border-top:1px solid #e5e7eb"><button class="btn" style="background:#fff1f2;color:#b42318;border:1px solid #fecdd3" onclick="deleteApartment(\''+i+'\')">Delete Apartment</button></div><button class="btn soft" style="margin-top:10px" onclick="route=\'properties\';render()">← Back</button>';
 }
 function showTask(i){
   let t=data.tasks.find(x=>x.id===i), a=apt(t.apartmentId);selected=i;document.getElementById('pageTitle').textContent='Task Details';
