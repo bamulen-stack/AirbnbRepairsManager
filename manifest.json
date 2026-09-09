@@ -7,7 +7,7 @@
   "display": "standalone",
   "background_color": "#f5f7fb",
   "theme_color": "#0b63ce",
-  "description": "Airbnb repairs and partial renovations manager integrated with MGV Pricing",
+  "description": "Airbnb repairs and partial renovations manager with MGV property catalog and MGV Pricing integration.",
   "icons": [
     {
       "src": "icon-192.png",
