@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v8 Pro Workflow</title>
+<title>Airbnb Repairs Manager v8.1 Grouped Properties</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -333,27 +333,61 @@ function renderHome(){
 function renderProperties(){
   let q=(window.propQ||'').trim().toLowerCase(), floor=window.propFloor||'', mode=window.propMode||'All';
   let floors=[...new Set(data.apartments.map(a=>String(a.floor||'')).filter(Boolean))].sort();
+
   let matchA=a=>{
-    let b=a.buildingId?bld(a.buildingId):null,open=data.tasks.some(t=>t.apartmentId===a.id&&t.status!=='Completed');
+    let b=a.buildingId?bld(a.buildingId):null;
+    let open=data.tasks.some(t=>t.apartmentId===a.id&&t.status!=='Completed');
     let hay=[a.name,a.address,a.floor,a.doorCodes,a.lockboxCode,a.technicalNotes,a.notes,b?.name,b?.address].join(' ').toLowerCase();
-    if(q&&!hay.includes(q))return false;if(floor&&String(a.floor||'')!==floor)return false;
-    if(mode==='Favorites'&&!isFavorite(a.id))return false;if(mode==='Open'&&!open)return false;
+    if(q&&!hay.includes(q))return false;
+    if(floor&&String(a.floor||'')!==floor)return false;
+    if(mode==='Favorites'&&!isFavorite(a.id))return false;
+    if(mode==='Open'&&!open)return false;
     if(mode==='Urgent'&&!data.tasks.some(t=>t.apartmentId===a.id&&t.status!=='Completed'&&t.priority==='Urgent'))return false;
     return true;
   };
+
   let aps=data.apartments.filter(matchA).sort((a,b)=>(isFavorite(b.id)-isFavorite(a.id))||a.name.localeCompare(b.name));
-  let bs=data.buildings.filter(b=>!q||(b.name+' '+b.address+' '+(b.entranceCode||'')).toLowerCase().includes(q));
+  let filtersActive=!!(q||floor||mode!=='All');
+
+  let search=`<div style="position:relative">
+    <input class="search" style="padding-left:42px" placeholder="🔍 Search apartment, building, address, floor or code..." value="${esc(window.propQ||'')}" oninput="window.propQ=this.value;renderProperties()">
+    <span style="position:absolute;left:14px;top:11px;font-size:20px">🔍</span>
+  </div>`;
+
   let filters=`<div class="filters">
-    <select onchange="window.propMode=this.value;renderProperties()"><option ${mode==='All'?'selected':''}>All</option><option ${mode==='Favorites'?'selected':''}>Favorites</option><option ${mode==='Open'?'selected':''}>Open</option><option ${mode==='Urgent'?'selected':''}>Urgent</option></select>
-    <select onchange="window.propFloor=this.value;renderProperties()"><option value="">All floors</option>${floors.map(x=>`<option ${floor===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
+    <select onchange="window.propMode=this.value;renderProperties()">
+      <option ${mode==='All'?'selected':''}>All</option>
+      <option ${mode==='Favorites'?'selected':''}>Favorites</option>
+      <option ${mode==='Open'?'selected':''}>Open</option>
+      <option ${mode==='Urgent'?'selected':''}>Urgent</option>
+    </select>
+    <select onchange="window.propFloor=this.value;renderProperties()">
+      <option value="">All floors</option>
+      ${floors.map(x=>`<option ${floor===x?'selected':''}>${esc(x)}</option>`).join('')}
+    </select>
     <button class="small-btn soft" onclick="window.propQ='';window.propFloor='';window.propMode='All';renderProperties()">Clear</button>
   </div>`;
+
+  let actions=`<div class="row" style="margin-top:10px">
+    <button class="btn primary" onclick="newBuilding()">+ Building</button>
+    <button class="btn soft" onclick="newApartment()">+ Apartment</button>
+  </div>`;
+
+  if(filtersActive){
+    document.getElementById('view').innerHTML=
+      search+filters+actions+
+      `<div class="section-head"><h2>Search / Filter Results</h2><span class="muted">${aps.length}</span></div>`+
+      (aps.length?aps.map(apartmentCard).join(''):'<div class="empty">No apartments match the search or filters.</div>');
+    return;
+  }
+
+  let sa=data.apartments.filter(a=>!a.buildingId);
   document.getElementById('view').innerHTML=
-    `<div style="position:relative"><input class="search" style="padding-left:42px" placeholder="🔍 Search apartment, building, address, floor or code..." value="${esc(window.propQ||'')}" oninput="window.propQ=this.value;renderProperties()"><span style="position:absolute;left:14px;top:11px;font-size:20px">🔍</span></div>
-    ${filters}<div class="row" style="margin-top:10px"><button class="btn primary" onclick="newBuilding()">+ Building</button><button class="btn soft" onclick="newApartment()">+ Apartment</button></div>
-    <div class="section-head"><h2>Apartments</h2><span class="muted">${aps.length}</span></div>${aps.length?aps.map(apartmentCard).join(''):'<div class="empty">No apartments match the filters.</div>'}
-    ${(!q&&mode==='All'&&!floor)?`<div class="section-head"><h2>Buildings</h2><span class="muted">${data.buildings.length}</span></div>${data.buildings.map(buildingCard).join('')}`:''}
-    ${(q&&bs.length)?`<div class="section-head"><h2>Matching buildings</h2></div>${bs.map(buildingCard).join('')}`:''}`;
+    search+filters+actions+
+    `<div class="section-head"><h2>Buildings</h2><span class="muted">${data.buildings.length}</span></div>`+
+    (data.buildings.length?data.buildings.map(buildingCard).join(''):'<div class="empty">No buildings yet.</div>')+
+    `<div class="section-head"><h2>Standalone apartments</h2><span class="muted">${sa.length}</span></div>`+
+    (sa.length?sa.map(apartmentCard).join(''):'<div class="empty">No standalone apartments.</div>');
 }
 function buildingCard(b){
   let count=data.apartments.filter(a=>a.buildingId===b.id).length;
