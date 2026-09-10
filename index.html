@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.1 Search Fix</title>
+<title>Airbnb Repairs Manager v9.2 Dashboard Colors</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -163,6 +163,53 @@ textarea{min-height:90px;resize:vertical}
 .safe-banner b{display:block;margin-bottom:4px}
 .safe-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .safe-status{font-size:12px;color:#667085;margin-top:8px}
+</style>
+
+<style>
+/* V9.2 dashboard color system */
+.stat-open{background:#eaf3ff!important;border:1px solid #b9d7ff!important}
+.stat-open b,.stat-open span{color:#0b63ce!important}
+.stat-overdue{background:#fff2df!important;border:1px solid #ffd29a!important}
+.stat-overdue b,.stat-overdue span{color:#c66a00!important}
+.stat-urgent{background:#feecec!important;border:1px solid #f6bcbc!important}
+.stat-urgent b,.stat-urgent span{color:#c62828!important}
+
+.summary-tasks{background:#eef5ff!important;border-color:#cbdcff!important}
+.summary-tasks b,.summary-tasks span{color:#315f9b!important}
+.summary-completed{background:#ecf9f0!important;border-color:#bfe5c8!important}
+.summary-completed b,.summary-completed span{color:#238636!important}
+.summary-costs{background:#edf8f3!important;border-color:#c2e6d6!important}
+.summary-costs b,.summary-costs span{color:#13795b!important}
+.summary-quotes{background:#f5efff!important;border-color:#dcc8ff!important}
+.summary-quotes b,.summary-quotes span{color:#6f42c1!important}
+
+.urgent-card{
+  background:#fff1f1!important;
+  border:1px solid #f3b6b6!important;
+  border-left:6px solid #dc2626!important;
+}
+.urgent-card .card-title{color:#a61b1b!important}
+.urgent-card:before{
+  content:"URGENT";
+  display:inline-block;
+  margin-bottom:8px;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#dc2626;
+  color:white;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.4px;
+}
+.today-accent{
+  background:#eef7ff;
+  border:1px solid #cfe4fb;
+  border-radius:18px;
+  padding:14px;
+  margin-bottom:12px;
+}
+.today-accent h2{color:#0b63ce;margin:0}
+.section-head.urgent-head h2{color:#b91c1c}
 </style>
 </head>
 <body>
@@ -580,11 +627,20 @@ function renderHome(){
   let urgent=open.filter(t=>t.priority==='Urgent').slice(0,5), ms=monthlyStats();
   document.getElementById('view').innerHTML=
     `<div class="hero"><div class="today">Today</div><div class="row space"><div><strong>${due.length}</strong><div class="sub">scheduled jobs</div></div><div style="font-size:42px">🛠️</div></div></div>
-    <div class="stats"><div class="stat"><b>${open.length}</b><span>Open</span></div><div class="stat"><b>${overdue.length}</b><span>Overdue</span></div><div class="stat"><b>${urgent.length}</b><span>Urgent</span></div></div>
-    <div class="summary-grid"><div class="summary-box"><b>${ms.tasks}</b><span>Tasks this month</span></div><div class="summary-box"><b>${ms.completed}</b><span>Completed</span></div><div class="summary-box"><b>€${ms.cost.toFixed(0)}</b><span>Recorded costs</span></div><div class="summary-box"><b>${ms.quotes}</b><span>Quotations</span></div></div>
-    <div class="section-head"><h2>Urgent Repairs</h2><button class="small-btn primary" onclick="chooseTemplate()">+ Quick Task</button></div>
-    ${urgent.length?urgent.map(t=>taskCard(t).replace('class="card"','class="card urgent-card"')).join(''):'<div class="empty">No urgent repairs.</div>'}
-    <div class="section-head"><h2>Today</h2><button class="small-btn soft" onclick="newTask()">+ Blank Task</button></div>
+    <div class="stats">
+      <div class="stat stat-open"><b>${open.length}</b><span>Open</span></div>
+      <div class="stat stat-overdue"><b>${overdue.length}</b><span>Overdue</span></div>
+      <div class="stat stat-urgent"><b>${urgent.length}</b><span>Urgent</span></div>
+    </div>
+    <div class="summary-grid">
+      <div class="summary-box summary-tasks"><b>${ms.tasks}</b><span>Tasks this month</span></div>
+      <div class="summary-box summary-completed"><b>${ms.completed}</b><span>Completed</span></div>
+      <div class="summary-box summary-costs"><b>€${ms.cost.toFixed(0)}</b><span>Recorded costs</span></div>
+      <div class="summary-box summary-quotes"><b>${ms.quotes}</b><span>Quotations</span></div>
+    </div>
+    <div class="section-head urgent-head"><h2>Urgent Repairs</h2><button class="small-btn primary" onclick="chooseTemplate()">+ Quick Task</button></div>
+    ${urgent.length?urgent.map(t=>taskCard(t).replace('class="card"','class="card urgent-card"')).join(''):'<div class="empty" style="background:#fff7f7;border-color:#f3cccc;color:#9f3434">No urgent repairs.</div>'}
+    <div class="today-accent"><div class="section-head" style="margin:0"><h2>Today</h2><button class="small-btn soft" onclick="newTask()">+ Blank Task</button></div></div>
     ${due.length?due.map(taskCard).join(''):'<div class="empty">No work scheduled for today.</div>'}
     <div class="section-head"><h2>Upcoming</h2></div>${upcoming.length?upcoming.map(taskCard).join(''):'<div class="empty">No upcoming work.</div>'}`;
 }
