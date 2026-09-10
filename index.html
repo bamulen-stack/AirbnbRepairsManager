@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v8.2 Inspection Module</title>
+<title>Airbnb Repairs Manager v9.1 Search Fix</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -157,6 +157,13 @@ textarea{min-height:90px;resize:vertical}
 .inspection-summary b{display:block;font-size:22px}
 .inspection-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 </style>
+
+<style>
+.safe-banner{background:#e9f7ef;border:1px solid #b7e4c7;border-radius:18px;padding:14px;margin-bottom:14px}
+.safe-banner b{display:block;margin-bottom:4px}
+.safe-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.safe-status{font-size:12px;color:#667085;margin-top:8px}
+</style>
 </head>
 <body>
 <header class="app-header">
@@ -262,6 +269,118 @@ function ensureCodesImport(d){
  return d;
 }
 
+
+const SAFE_DB_NAME='AirbnbRepairsSafeDB';
+const SAFE_DB_STORE='snapshots';
+const SAFE_DB_KEY='latest';
+let safeFileHandle=null;
+let safeWriteTimer=null;
+
+function openSafeDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(SAFE_DB_NAME,1);
+    req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(SAFE_DB_STORE))db.createObjectStore(SAFE_DB_STORE)};
+    req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error);
+  });
+}
+async function saveToIndexedDB(payload){
+  try{
+    const db=await openSafeDB();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(SAFE_DB_STORE,'readwrite');
+      tx.objectStore(SAFE_DB_STORE).put(payload,SAFE_DB_KEY);
+      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+    });
+    db.close();
+  }catch(e){}
+}
+async function loadFromIndexedDB(){
+  try{
+    const db=await openSafeDB();
+    const value=await new Promise((resolve,reject)=>{
+      const tx=db.transaction(SAFE_DB_STORE,'readonly');
+      const req=tx.objectStore(SAFE_DB_STORE).get(SAFE_DB_KEY);
+      req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
+    });
+    db.close();return value;
+  }catch(e){return null}
+}
+function safePayload(){
+  return {app:'Airbnb Repairs Manager',backupVersion:3,createdAt:new Date().toISOString(),data:data};
+}
+async function saveExternalBackupNow(){
+  if(!safeFileHandle)return false;
+  try{
+    if(safeFileHandle.queryPermission){
+      let perm=await safeFileHandle.queryPermission({mode:'readwrite'});
+      if(perm!=='granted'&&safeFileHandle.requestPermission)perm=await safeFileHandle.requestPermission({mode:'readwrite'});
+      if(perm!=='granted')return false;
+    }
+    const writable=await safeFileHandle.createWritable();
+    await writable.write(JSON.stringify(safePayload()));
+    await writable.close();
+    localStorage.setItem('airbnb_safe_external_last',new Date().toISOString());
+    updateSafeStatus();
+    return true;
+  }catch(e){return false}
+}
+function scheduleExternalBackup(){
+  if(!safeFileHandle)return;
+  clearTimeout(safeWriteTimer);
+  safeWriteTimer=setTimeout(()=>saveExternalBackupNow(),500);
+}
+async function chooseSafetyBackupFile(){
+  if(!window.showSaveFilePicker){
+    alert('Automatic external backup is not supported by this browser. Use “Download Backup” after important changes.');
+    return;
+  }
+  try{
+    safeFileHandle=await window.showSaveFilePicker({
+      suggestedName:'airbnb-repairs-SAFE-backup.json',
+      types:[{description:'JSON Backup',accept:{'application/json':['.json']}}]
+    });
+    await saveExternalBackupNow();
+    alert('Safety backup file connected. While this permission remains active, changes will also be written to that external file.');
+  }catch(e){}
+}
+async function restoreFromSafetyFile(){
+  if(window.showOpenFilePicker){
+    try{
+      const [fh]=await window.showOpenFilePicker({multiple:false,types:[{description:'JSON Backup',accept:{'application/json':['.json']}}]});
+      const file=await fh.getFile(); importBackup(file);
+      return;
+    }catch(e){return}
+  }
+  document.getElementById('safetyRestoreInput').click();
+}
+function updateSafeStatus(){
+  const el=document.getElementById('safeStatus');if(!el)return;
+  const last=localStorage.getItem('airbnb_safe_external_last');
+  el.textContent=safeFileHandle?'External safety file connected'+(last?' • last write '+new Date(last).toLocaleString():''):'External safety file not connected';
+}
+function downloadSafetyBackup(){
+  let payload=safePayload();
+  let blob=new Blob([JSON.stringify(payload)],{type:'application/json;charset=utf-8'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='airbnb-repairs-SAFE-'+today()+'.json';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+async function initializeSafeData(){
+  // Normal updates keep data in localStorage. IndexedDB is an additional mirror.
+  // If localStorage is unexpectedly empty but IndexedDB still exists, recover from it.
+  try{
+    const localRaw=localStorage.getItem(KEY);
+    const dbPayload=await loadFromIndexedDB();
+    if((!localRaw || localRaw==='null') && dbPayload && dbPayload.data){
+      data=dbPayload.data;
+      data.buildings=data.buildings||[];data.apartments=data.apartments||[];data.tasks=data.tasks||[];
+      data.photos=data.photos||[];data.purchases=data.purchases||[];data.quotations=data.quotations||[];
+      data.favorites=data.favorites||[];data.inspections=data.inspections||[];
+      localStorage.setItem(KEY,JSON.stringify(data));
+    }
+    await saveToIndexedDB(safePayload());
+  }catch(e){}
+}
+
 let data=loadData(), route='home', selected=null;
 
 function fresh(){return {buildings:[],apartments:[],tasks:[],photos:[],purchases:[],quotations:[],favorites:[],inspections:[]}}
@@ -270,7 +389,11 @@ function loadData(){try{
       d.buildings=d.buildings||[];d.apartments=d.apartments||[];d.tasks=d.tasks||[];d.photos=d.photos||[];
       d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];d.inspections=d.inspections||[];return ensureCodesImport(ensureMGVSeed(d))
     }catch(e){return ensureCodesImport(ensureMGVSeed(fresh()))}}
-function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function save(){
+  localStorage.setItem(KEY,JSON.stringify(data));
+  saveToIndexedDB(safePayload());
+  scheduleExternalBackup();
+}
 function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function today(){return new Date().toISOString().slice(0,10)}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -398,6 +521,27 @@ function showInspection(insId){
     </div>`;
 }
 
+
+let propertySearchTimer=null, taskSearchTimer=null;
+function schedulePropertySearch(input){
+  window.propQ=input.value;
+  clearTimeout(propertySearchTimer);
+  propertySearchTimer=setTimeout(()=>{
+    renderProperties();
+    const el=document.getElementById('propertySearchInput');
+    if(el){el.focus();let n=el.value.length;try{el.setSelectionRange(n,n)}catch(e){}}
+  },350);
+}
+function scheduleTaskSearch(input){
+  window.taskQ=input.value;
+  clearTimeout(taskSearchTimer);
+  taskSearchTimer=setTimeout(()=>{
+    renderTasks();
+    const el=document.getElementById('taskSearchInput');
+    if(el){el.focus();let n=el.value.length;try{el.setSelectionRange(n,n)}catch(e){}}
+  },350);
+}
+
 function apt(id){return data.apartments.find(x=>x.id===id)}
 function bld(id){return data.buildings.find(x=>x.id===id)}
 function statusBadge(t){
@@ -410,7 +554,17 @@ function taskCard(t){
   return `<div class="card" onclick="showTask('${t.id}')"><div class="row space"><div><div class="card-title">${esc(t.title)}</div><div class="meta">${esc(a?a.name:'')}${a&&a.floor?' • Floor '+esc(a.floor):''}</div></div><span style="font-size:20px">›</span></div><div class="meta">${fmt(t.date)}${t.time?' • '+esc(t.time):''}${t.readyBy?' • Ready by '+new Date(t.readyBy).toLocaleString():''}${t.category?' • '+esc(t.category):''}</div>${statusBadge(t)}<div class="task-mini"><button class="task-pending" onclick="event.stopPropagation();setTaskStatus('${t.id}','Pending')">Pending</button><button class="task-progress" onclick="event.stopPropagation();setTaskStatus('${t.id}','In Progress')">In Progress</button><button class="task-done" onclick="event.stopPropagation();setTaskStatus('${t.id}','Completed')">Complete</button></div></div>`
 }
 function render(){
-  document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.route===route));
+  
+async function forceAppUpdate(){
+  if(!('serviceWorker' in navigator)){alert('Service worker unavailable.');return}
+  try{
+    const reg=await navigator.serviceWorker.getRegistration();
+    if(reg){await reg.update();alert('Update check completed. If a new version exists it will load automatically.');}
+    else alert('No service worker registration found.');
+  }catch(e){alert('Could not check for updates.')}
+}
+
+document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.route===route));
   const names={home:'Dashboard',calendar:'Calendar',properties:'Properties',tasks:'Tasks',finance:'Quotations',more:'More'};
   document.getElementById('pageTitle').textContent=names[route]||'Airbnb Repairs';
   if(route==='home')renderHome();
@@ -454,7 +608,7 @@ function renderProperties(){
   let filtersActive=!!(q||floor||mode!=='All');
 
   let search=`<div style="position:relative">
-    <input class="search" style="padding-left:42px" placeholder="🔍 Search apartment, building, address, floor or code..." value="${esc(window.propQ||'')}" oninput="window.propQ=this.value;renderProperties()">
+    <input id="propertySearchInput" class="search" style="padding-left:42px" placeholder="🔍 Search apartment, building, address, floor or code..." value="${esc(window.propQ||'')}" oninput="schedulePropertySearch(this)">
     <span style="position:absolute;left:14px;top:11px;font-size:20px">🔍</span>
   </div>`;
 
@@ -508,7 +662,7 @@ function renderTasks(){
   if(q)arr=arr.filter(t=>taskMatches(t,q));if(pri)arr=arr.filter(t=>t.priority===pri);
   let chips=['Open','Pending','In Progress','Completed','All'].map(x=>`<button class="small-btn ${f===x?'primary':'soft'}" onclick="window.taskFilter='${x}';renderTasks()">${x}</button>`).join('');
   document.getElementById('view').innerHTML=
-    `<input class="search" placeholder="🔍 Search task, apartment, building, status..." value="${esc(q)}" oninput="window.taskQ=this.value;renderTasks()">
+    `<input id="taskSearchInput" class="search" placeholder="🔍 Search task, apartment, building, status..." value="${esc(q)}" oninput="scheduleTaskSearch(this)">
     <div class="filters"><select onchange="window.taskPri=this.value;renderTasks()"><option value="">All priorities</option><option ${pri==='Urgent'?'selected':''}>Urgent</option><option ${pri==='High'?'selected':''}>High</option><option ${pri==='Normal'?'selected':''}>Normal</option></select></div>
     <div class="row" style="overflow:auto;margin-bottom:12px">${chips}</div>${arr.length?arr.map(taskCard).join(''):'<div class="empty">No tasks here.</div>'}`;
 }
@@ -573,11 +727,21 @@ function editQuotation(i){
 function renderMore(){
   let ms=monthlyStats();
   document.getElementById('view').innerHTML=
-    `<div class="card"><div class="card-title">This Month</div><div class="summary-grid"><div class="summary-box"><b>${ms.tasks}</b><span>Tasks</span></div><div class="summary-box"><b>${ms.completed}</b><span>Completed</span></div><div class="summary-box"><b>€${ms.cost.toFixed(2)}</b><span>Costs</span></div><div class="summary-box"><b>${money(ms.quoteTotal)}</b><span>Quotations</span></div></div></div>
-    <div class="card"><div class="card-title">Backup, Restore & Export</div><p class="muted">Backup includes buildings, apartments, tasks, photos, purchases and quotations.</p><div class="row" style="flex-wrap:wrap"><button class="btn primary" onclick="exportBackup()">Backup JSON</button><label class="btn soft">Restore JSON<input type="file" accept=".json" hidden onchange="importBackup(this.files[0])"></label><button class="btn soft" onclick="exportCsv()">Export CSV</button></div></div>
+    `<div class="safe-banner"><b>🛡 Safe Data</b><div>Your working data is mirrored in IndexedDB. For protection against Chrome “Clear site data”, keep an external JSON backup outside the browser.</div>
+      <div class="safe-actions">
+        <button class="btn primary" onclick="chooseSafetyBackupFile()">Connect Auto Backup File</button>
+        <button class="btn soft" onclick="downloadSafetyBackup()">Download Backup</button>
+        <button class="btn soft" onclick="restoreFromSafetyFile()">Restore Backup</button>
+      </div>
+      <div class="safe-status" id="safeStatus"></div>
+      <input id="safetyRestoreInput" type="file" accept=".json,application/json" hidden onchange="importBackup(this.files[0])">
+    </div>
+    <div class="card"><div class="card-title">This Month</div><div class="summary-grid"><div class="summary-box"><b>${ms.tasks}</b><span>Tasks</span></div><div class="summary-box"><b>${ms.completed}</b><span>Completed</span></div><div class="summary-box"><b>€${ms.cost.toFixed(2)}</b><span>Costs</span></div><div class="summary-box"><b>${money(ms.quoteTotal)}</b><span>Quotations</span></div></div></div>
+    <div class="card"><div class="card-title">Backup & Export</div><p class="muted">Backups include buildings, apartments, tasks, photos, purchases, quotations, favorites and inspections.</p><div class="row" style="flex-wrap:wrap"><button class="btn primary" onclick="downloadSafetyBackup()">Backup JSON</button><label class="btn soft">Restore JSON<input type="file" accept=".json" hidden onchange="importBackup(this.files[0])"></label><button class="btn soft" onclick="exportCsv()">Export CSV</button></div></div>
+    <div class="card"><div class="card-title">Update Safety</div><p class="muted">App updates no longer require clearing Chrome data. The service worker checks for a new version and activates it automatically.</p><button class="btn soft" onclick="forceAppUpdate()">Check for app update</button></div>
     <div class="card"><div class="card-title">Favorites</div><p class="muted">${favorites().length} favorite apartments. Use ☆ / ⭐ in Properties.</p></div>
-    <div class="card"><div class="card-title">Local storage</div><p class="muted">All information and task photos are kept on this device. No online account is required.</p></div>
     <div class="card"><div class="card-title">Database</div><p>${data.buildings.length} buildings • ${data.apartments.length} apartments • ${data.tasks.length} tasks • ${(data.inspections||[]).length} inspections • ${data.purchases.length} purchases • ${data.quotations.length} quotations</p></div>`;
+  setTimeout(updateSafeStatus,0);
 }
 function openSheet(title,body,handler){
   document.getElementById('sheetTitle').textContent=title;document.getElementById('sheetBody').innerHTML=body;
@@ -825,14 +989,45 @@ async function shareReport(i){
 function completeTask(i){let t=data.tasks.find(x=>x.id===i);t.status='Completed';save();render();showTask(i)}
 function deleteTask(i){if(confirm('Delete this task and its photos?')){data.tasks=data.tasks.filter(x=>x.id!==i);data.photos=(data.photos||[]).filter(p=>p.taskId!==i);save();route='tasks';render()}}
 function exportBackup(){
-  let blob=new Blob([JSON.stringify(data)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='airbnb-repairs-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+  downloadSafetyBackup()
 }
-function importBackup(file){if(!file)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(confirm('Replace current data with this backup?')){data=d;save();render();alert('Backup imported.')}}catch(e){alert('Invalid backup file.')}};r.readAsText(file)}
+function importBackup(file){
+  if(!file)return;
+  let r=new FileReader();
+  r.onload=()=>{
+    try{
+      let raw=String(r.result||'').replace(/^\uFEFF/,'').trim();
+      if(!raw)throw new Error('Empty file');
+      let parsed=JSON.parse(raw);
+      let d=(parsed&&parsed.data&&typeof parsed.data==='object')?parsed.data:parsed;
+      if(!d||typeof d!=='object'||Array.isArray(d))throw new Error('Invalid structure');
+      d.buildings=Array.isArray(d.buildings)?d.buildings:[];
+      d.apartments=Array.isArray(d.apartments)?d.apartments:[];
+      d.tasks=Array.isArray(d.tasks)?d.tasks:[];
+      d.photos=Array.isArray(d.photos)?d.photos:[];
+      d.purchases=Array.isArray(d.purchases)?d.purchases:[];
+      d.quotations=Array.isArray(d.quotations)?d.quotations:[];
+      d.favorites=Array.isArray(d.favorites)?d.favorites:[];
+      d.inspections=Array.isArray(d.inspections)?d.inspections:[];
+      if(confirm('Restore this backup and replace the current local data?')){
+        data=d;save();render();alert('Backup restored successfully.');
+      }
+    }catch(e){
+      alert('Invalid backup file. Please select a JSON backup created by Airbnb Repairs.');
+    }
+  };
+  r.onerror=()=>alert('Could not read the selected backup file.');
+  r.readAsText(file,'UTF-8');
+}
 document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{route=n.dataset.route;render()});
 document.getElementById('quickAdd').onclick=()=>chooseTemplate();
-let importedTask=importMGVQuote();
-let directApt=new URLSearchParams(location.search).get('apt');
-if(importedTask){showTask(importedTask);}else if(directApt&&apt(directApt)){route='properties';render();showApartment(directApt);}else{render();}
+initializeSafeData().finally(()=>{
+  let importedTask=importMGVQuote();
+  let directApt=new URLSearchParams(location.search).get('apt');
+  if(importedTask){showTask(importedTask);}
+  else if(directApt&&apt(directApt)){route='properties';render();showApartment(directApt);}
+  else{render();}
+});
 
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
