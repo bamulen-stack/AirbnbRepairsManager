@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v7.3 Codes Import</title>
+<title>Airbnb Repairs Manager v7.5 Custom Blank Task</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -277,15 +277,35 @@ function renderHome(){
     (upcoming.length?upcoming.map(taskCard).join(''):'<div class="empty">No upcoming work.</div>');
 }
 function renderProperties(){
-  let q=(window.propQ||'').toLowerCase();
-  let bs=data.buildings.filter(x=>(x.name+' '+x.address).toLowerCase().includes(q));
-  let sa=data.apartments.filter(a=>!a.buildingId && (a.name+' '+a.address+' '+a.floor).toLowerCase().includes(q));
+  let q=(window.propQ||'').trim().toLowerCase();
+  let bs=data.buildings.filter(x=>(x.name+' '+x.address+' '+(x.entranceCode||'')).toLowerCase().includes(q));
+  let aps=data.apartments.filter(a=>{
+    let b=a.buildingId?bld(a.buildingId):null;
+    let hay=[
+      a.name,a.address,a.floor,a.doorCodes,a.lockboxCode,
+      a.technicalNotes,a.notes,b?.name,b?.address
+    ].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+
+  if(q){
+    document.getElementById('view').innerHTML=
+      '<div style="position:relative"><input class="search" style="padding-left:42px" placeholder="🔍 Search apartment, building, address, floor or code..." value="'+esc(window.propQ||'')+'" oninput="window.propQ=this.value;renderProperties()"><span style="position:absolute;left:14px;top:11px;font-size:20px">🔍</span></div>'+
+      '<div class="row" style="margin-top:12px"><button class="btn primary" onclick="newBuilding()">+ Building</button><button class="btn soft" onclick="newApartment()">+ Apartment</button></div>'+
+      '<div class="section-head"><h2>Search results</h2><span class="muted">'+(bs.length+aps.length)+'</span></div>'+
+      (aps.length?'<div class="section-head"><h2>Apartments</h2><span class="muted">'+aps.length+'</span></div>'+aps.map(apartmentCard).join(''):'')+
+      (bs.length?'<div class="section-head"><h2>Buildings</h2><span class="muted">'+bs.length+'</span></div>'+bs.map(buildingCard).join(''):'')+
+      ((!aps.length&&!bs.length)?'<div class="empty">No property found.</div>':'');
+    return;
+  }
+
+  let sa=data.apartments.filter(a=>!a.buildingId);
   document.getElementById('view').innerHTML=
-    '<input class="search" placeholder="Search property or address..." value="'+esc(window.propQ||'')+'" oninput="window.propQ=this.value;renderProperties()">'+
+    '<div style="position:relative"><input class="search" style="padding-left:42px" placeholder="🔍 Search apartment, building, address, floor or code..." value="" oninput="window.propQ=this.value;renderProperties()"><span style="position:absolute;left:14px;top:11px;font-size:20px">🔍</span></div>'+
     '<div class="row" style="margin-top:12px"><button class="btn primary" onclick="newBuilding()">+ Building</button><button class="btn soft" onclick="newApartment()">+ Apartment</button></div>'+
-    '<div class="section-head"><h2>Buildings</h2><span class="muted">'+bs.length+'</span></div>'+
-    (bs.length?bs.map(buildingCard).join(''):'<div class="empty">No buildings yet.</div>')+
-    '<div class="section-head"><h2>Standalone apartments</h2></div>'+
+    '<div class="section-head"><h2>Buildings</h2><span class="muted">'+data.buildings.length+'</span></div>'+
+    (data.buildings.length?data.buildings.map(buildingCard).join(''):'<div class="empty">No buildings yet.</div>')+
+    '<div class="section-head"><h2>Standalone apartments</h2><span class="muted">'+sa.length+'</span></div>'+
     (sa.length?sa.map(apartmentCard).join(''):'<div class="empty">No standalone apartments.</div>');
 }
 function buildingCard(b){
@@ -369,6 +389,7 @@ function renderMore(){
 }
 function openSheet(title,body,handler){
   document.getElementById('sheetTitle').textContent=title;document.getElementById('sheetBody').innerHTML=body;
+  document.querySelector('#sheetForm .actions').style.display='flex';
   document.getElementById('overlay').classList.add('show');
   document.getElementById('sheetForm').onsubmit=e=>{e.preventDefault();handler(Object.fromEntries(new FormData(e.target)));closeSheet();save();render()}
 }
