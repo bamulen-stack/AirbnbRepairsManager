@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v8.1 Grouped Properties</title>
+<title>Airbnb Repairs Manager v8.2 Inspection Module</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -138,6 +138,25 @@ textarea{min-height:90px;resize:vertical}
 .photo-date{position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.65);color:#fff;padding:3px 6px;border-radius:8px;font-size:10px}
 .qr-card{text-align:center}.qr-card img{width:220px;max-width:80%;image-rendering:pixelated;border-radius:12px;background:white;padding:8px}
 </style>
+
+<style>
+.inspection-section{margin:14px 0}
+.inspection-item{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:12px;margin:10px 0}
+.inspection-item-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.inspection-status{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.inspection-status button{border:0;border-radius:999px;padding:8px 11px;font-weight:800;font-size:12px}
+.inspection-status .ok{background:#dcfce7;color:#166534}
+.inspection-status .problem{background:#fee2e2;color:#b91c1c}
+.inspection-status .na{background:#eef2f7;color:#556070}
+.inspection-note{margin-top:8px}
+.inspection-note textarea{width:100%;min-height:70px}
+.inspection-problem{border-left:5px solid #dc2626}
+.inspection-ok{border-left:5px solid #16a34a}
+.inspection-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.inspection-summary .box{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:12px;text-align:center}
+.inspection-summary b{display:block;font-size:22px}
+.inspection-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+</style>
 </head>
 <body>
 <header class="app-header">
@@ -245,11 +264,11 @@ function ensureCodesImport(d){
 
 let data=loadData(), route='home', selected=null;
 
-function fresh(){return {buildings:[],apartments:[],tasks:[],photos:[],purchases:[],quotations:[],favorites:[]}}
+function fresh(){return {buildings:[],apartments:[],tasks:[],photos:[],purchases:[],quotations:[],favorites:[],inspections:[]}}
 function loadData(){try{
       let d=JSON.parse(localStorage.getItem(KEY))||fresh();
       d.buildings=d.buildings||[];d.apartments=d.apartments||[];d.tasks=d.tasks||[];d.photos=d.photos||[];
-      d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];return ensureCodesImport(ensureMGVSeed(d))
+      d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];d.inspections=d.inspections||[];return ensureCodesImport(ensureMGVSeed(d))
     }catch(e){return ensureCodesImport(ensureMGVSeed(fresh()))}}
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
 function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
@@ -292,6 +311,91 @@ function exportCsv(){
   data.tasks.forEach(t=>{let a=apt(t.apartmentId),b=a?.buildingId?bld(a.buildingId):null;rows.push([a?.name||'',b?.name||'',a?.address||'',a?.floor||'',t.title||'',t.date||'',t.status||'',t.priority||'',t.cost||''])});
   let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
   let blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='airbnb-repairs-'+today()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+
+const INSPECTION_SECTIONS=[
+  {name:'Plumbing',items:['Leaks under sinks','Faucets / taps','Toilet flush / cistern','Shower / bath drainage','Water pressure','Visible pipe leaks']},
+  {name:'Electrical',items:['Lights','Sockets','Switches','Electrical panel','RCD / breakers','Loose or damaged fittings']},
+  {name:'Air Conditioning',items:['Cooling / heating','Remote control','Filters','Drain / water leakage','Noise / vibration']},
+  {name:'Bathroom',items:['Silicone / seals','Grout / tiles','Shower screen','Mirror / accessories','Ventilation','Moisture / mould']},
+  {name:'Kitchen',items:['Sink / mixer','Cabinets / hinges','Worktop','Oven / hob','Refrigerator','Extractor hood']},
+  {name:'Doors & Locks',items:['Main door lock','Interior doors','Handles','Balcony doors','Lockbox','Door codes']},
+  {name:'Windows & Shutters',items:['Windows open/close','Shutters / rollers','Handles','Seals','Glass condition']},
+  {name:'Furniture',items:['Beds','Sofas / chairs','Tables','Wardrobes','Loose / damaged furniture']},
+  {name:'Walls & Paint',items:['Cracks','Peeling paint','Moisture stains','Ceilings','Skirting / trims']},
+  {name:'Appliances',items:['Washing machine','Dishwasher','Coffee machine','Kettle','TV','Hair dryer']},
+  {name:'Safety',items:['Smoke detector','Fire extinguisher','Emergency lights','Trip hazards','Exposed wires']},
+  {name:'General',items:['Cleanliness issue','Odours','Pest signs','Balcony / terrace','Other problem']}
+];
+function newInspection(apartmentId){
+  let a=apt(apartmentId);if(!a)return;
+  let ins={id:id(),apartmentId,date:today(),createdAt:Date.now(),status:'Open',items:[]};
+  INSPECTION_SECTIONS.forEach(s=>s.items.forEach(name=>ins.items.push({id:id(),section:s.name,name,status:'Not checked',note:'',photoIds:[]})));
+  data.inspections.push(ins);save();showInspection(ins.id);
+}
+function inspectionById(i){return (data.inspections||[]).find(x=>x.id===i)}
+function inspectionCounts(ins){
+  let ok=ins.items.filter(x=>x.status==='OK').length,problems=ins.items.filter(x=>x.status==='Problem').length,na=ins.items.filter(x=>x.status==='Not checked').length;
+  return {ok,problems,na,total:ins.items.length};
+}
+function setInspectionItemStatus(insId,itemId,status){
+  let ins=inspectionById(insId),it=ins?.items.find(x=>x.id===itemId);if(!it)return;
+  it.status=status;save();showInspection(insId);
+}
+function saveInspectionNote(insId,itemId,val){
+  let ins=inspectionById(insId),it=ins?.items.find(x=>x.id===itemId);if(!it)return;it.note=val;save();
+}
+function createTaskFromInspection(insId,itemId){
+  let ins=inspectionById(insId),it=ins?.items.find(x=>x.id===itemId);if(!ins||!it)return;
+  let title=it.name;
+  let desc='Found during inspection on '+fmt(ins.date)+(it.note?'. '+it.note:'');
+  data.tasks.push({id:id(),apartmentId:ins.apartmentId,title,category:it.section,priority:'Normal',status:'Pending',date:today(),description:desc,materials:'',cost:'',notes:'Inspection '+ins.id,createdAt:Date.now()});
+  save();alert('Task created.');
+}
+function completeInspection(insId){
+  let ins=inspectionById(insId);if(!ins)return;
+  ins.status='Completed';ins.completedAt=Date.now();save();showInspection(insId);
+}
+function deleteInspection(insId){
+  if(!confirm('Delete this inspection?'))return;
+  data.inspections=data.inspections.filter(x=>x.id!==insId);save();route='properties';render();showApartment(selected);
+}
+function inspectionHistoryHtml(apartmentId){
+  let arr=(data.inspections||[]).filter(x=>x.apartmentId===apartmentId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(!arr.length)return '<div class="empty">No inspections yet.</div>';
+  return arr.map(ins=>{
+    let c=inspectionCounts(ins);
+    return `<div class="card" onclick="showInspection('${ins.id}')"><div class="row space"><div><div class="card-title">🔎 Inspection • ${fmt(ins.date)}</div><div class="meta">${c.problems} problem(s) • ${c.ok} OK • ${ins.status||'Open'}</div></div><span style="font-size:20px">›</span></div></div>`;
+  }).join('');
+}
+function showInspection(insId){
+  let ins=inspectionById(insId);if(!ins)return;let a=apt(ins.apartmentId);selected=ins.apartmentId;
+  document.getElementById('pageTitle').textContent='Inspection';
+  let c=inspectionCounts(ins);
+  let sections=INSPECTION_SECTIONS.map(s=>{
+    let items=ins.items.filter(x=>x.section===s.name);
+    return `<div class="inspection-section"><div class="section-head"><h2>${esc(s.name)}</h2></div>${items.map(it=>`
+      <div class="inspection-item ${it.status==='Problem'?'inspection-problem':it.status==='OK'?'inspection-ok':''}">
+        <div class="inspection-item-head"><b>${esc(it.name)}</b><span class="badge">${esc(it.status)}</span></div>
+        <div class="inspection-status">
+          <button class="ok" onclick="setInspectionItemStatus('${ins.id}','${it.id}','OK')">✓ OK</button>
+          <button class="problem" onclick="setInspectionItemStatus('${ins.id}','${it.id}','Problem')">⚠ Problem</button>
+          <button class="na" onclick="setInspectionItemStatus('${ins.id}','${it.id}','Not checked')">Not checked</button>
+        </div>
+        <div class="inspection-note"><textarea placeholder="Notes..." onchange="saveInspectionNote('${ins.id}','${it.id}',this.value)">${esc(it.note||'')}</textarea></div>
+        ${it.status==='Problem'?`<div class="inspection-actions"><button class="small-btn primary" onclick="createTaskFromInspection('${ins.id}','${it.id}')">+ Create Task</button></div>`:''}
+      </div>`).join('')}</div>`;
+  }).join('');
+  document.getElementById('view').innerHTML=
+    `<div class="card"><div class="row space"><div><div class="card-title">🔎 ${esc(a?.name||'Apartment')}</div><div class="meta">${fmt(ins.date)} • ${esc(ins.status||'Open')}</div></div></div></div>
+    <div class="inspection-summary"><div class="box"><b>${c.ok}</b><span>OK</span></div><div class="box"><b>${c.problems}</b><span>Problems</span></div><div class="box"><b>${c.na}</b><span>Not checked</span></div></div>
+    ${sections}
+    <div class="row no-print" style="flex-wrap:wrap;margin-top:14px">
+      ${ins.status!=='Completed'?`<button class="btn primary" onclick="completeInspection('${ins.id}')">Complete Inspection</button>`:''}
+      <button class="btn danger" onclick="deleteInspection('${ins.id}')">Delete</button>
+      <button class="btn soft" onclick="showApartment('${ins.apartmentId}')">← Back to Apartment</button>
+    </div>`;
 }
 
 function apt(id){return data.apartments.find(x=>x.id===id)}
@@ -473,7 +577,7 @@ function renderMore(){
     <div class="card"><div class="card-title">Backup, Restore & Export</div><p class="muted">Backup includes buildings, apartments, tasks, photos, purchases and quotations.</p><div class="row" style="flex-wrap:wrap"><button class="btn primary" onclick="exportBackup()">Backup JSON</button><label class="btn soft">Restore JSON<input type="file" accept=".json" hidden onchange="importBackup(this.files[0])"></label><button class="btn soft" onclick="exportCsv()">Export CSV</button></div></div>
     <div class="card"><div class="card-title">Favorites</div><p class="muted">${favorites().length} favorite apartments. Use ☆ / ⭐ in Properties.</p></div>
     <div class="card"><div class="card-title">Local storage</div><p class="muted">All information and task photos are kept on this device. No online account is required.</p></div>
-    <div class="card"><div class="card-title">Database</div><p>${data.buildings.length} buildings • ${data.apartments.length} apartments • ${data.tasks.length} tasks • ${data.purchases.length} purchases • ${data.quotations.length} quotations</p></div>`;
+    <div class="card"><div class="card-title">Database</div><p>${data.buildings.length} buildings • ${data.apartments.length} apartments • ${data.tasks.length} tasks • ${(data.inspections||[]).length} inspections • ${data.purchases.length} purchases • ${data.quotations.length} quotations</p></div>`;
 }
 function openSheet(title,body,handler){
   document.getElementById('sheetTitle').textContent=title;document.getElementById('sheetBody').innerHTML=body;
@@ -584,8 +688,13 @@ function showApartment(i){
   document.getElementById('view').innerHTML=
     `<div class="card"><div class="row space"><div><div class="card-title">${esc(a.name)}</div><div class="meta">${esc(a.buildingId?(bld(a.buildingId)?.name||''):'Standalone apartment')}</div></div><div class="row"><button class="pin-btn" onclick="toggleFavorite('${i}')">${isFavorite(i)?'⭐':'☆'}</button><button class="small-btn soft" onclick="editApartment('${i}')">Edit</button></div></div>
     <div class="detail-grid">${a.address?`<div class="detail-line">📍 ${esc(a.address)}${a.floor?' • Floor '+esc(a.floor):''}</div>`:''}${a.lockboxCode?`<div class="detail-line">🔐 Lockbox: <span class="code">${esc(a.lockboxCode)}</span> ${esc(a.lockboxLocation||'')}</div>`:''}${a.doorCodes?`<div class="detail-line">🚪 Access: <span class="code">${esc(a.doorCodes)}</span></div>`:''}${a.wifiInfo?`<div class="detail-line">📶 Wi‑Fi: ${esc(a.wifiInfo)}</div>`:''}${a.panelLocation?`<div class="detail-line">⚡ Electrical panel: ${esc(a.panelLocation)}</div>`:''}${a.waterValve?`<div class="detail-line">🚰 Main water valve: ${esc(a.waterValve)}</div>`:''}${a.waterHeater?`<div class="detail-line">♨ Water heater: ${esc(a.waterHeater)}</div>`:''}${a.acInfo?`<div class="detail-line">❄ A/C: ${esc(a.acInfo)}</div>`:''}${a.technicalNotes?`<div class="detail-line">🛠 ${esc(a.technicalNotes)}</div>`:''}</div></div>
-    <div class="quick-grid"><button class="quick-action" onclick="newTask('${i}')">➕ Blank Task</button><button class="quick-action" onclick="chooseTemplate('${i}')">🛠 Quick Task</button><button class="quick-action" onclick="newQuotation('${i}')">💶 Quote</button><button class="quick-action" onclick="showApartmentQR('${i}')">▦ QR</button></div>
-    ${health}<div class="section-head"><h2>Maintenance History</h2><button class="small-btn primary" onclick="chooseTemplate('${i}')">+ Task</button></div>${maintenanceHistoryHtml(i)}<button class="btn soft" onclick="route='properties';render()">← Back</button>`;
+    <div class="quick-grid"><button class="quick-action" onclick="newTask('${i}')">➕ Blank Task</button><button class="quick-action" onclick="chooseTemplate('${i}')">🛠 Quick Task</button><button class="quick-action" onclick="newQuotation('${i}')">💶 Quote</button><button class="quick-action" onclick="newInspection('${i}')">🔎 Inspection</button><button class="quick-action" onclick="showApartmentQR('${i}')">▦ QR</button></div>
+    ${health}
+    <div class="section-head"><h2>Inspection History</h2><button class="small-btn primary" onclick="newInspection('${i}')">+ Inspection</button></div>
+    ${inspectionHistoryHtml(i)}
+    <div class="section-head"><h2>Maintenance History</h2><button class="small-btn primary" onclick="chooseTemplate('${i}')">+ Task</button></div>
+    ${maintenanceHistoryHtml(i)}
+    <button class="btn soft" onclick="route='properties';render()">← Back</button>`;
 }
 function taskQuotationHtml(taskId){
   let qs=(data.quotations||[]).filter(q=>q.taskId===taskId);
