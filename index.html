@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.18.2 Core Fix</title>
+<title>Airbnb Repairs Manager v9.19 Routine Maintenance</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -300,6 +300,17 @@ textarea{min-height:90px;resize:vertical}
 .route-task{padding:8px 0;border-top:1px solid #eef2f7}
 .route-task:first-of-type{border-top:0}
 .recur-badge{display:inline-block;background:#eef5ff;color:#315f9b;border-radius:999px;padding:5px 8px;font-size:12px;font-weight:800;margin-top:6px}
+</style>
+
+<style>
+.routine-card{border-left:5px solid #0b63ce}
+.routine-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.routine-item{background:#fff;border:1px solid #dfe7ef;border-radius:16px;padding:14px}
+.routine-due{display:inline-block;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:900}
+.routine-ok{background:#e7f7ee;color:#16734c}
+.routine-soon{background:#fff4d8;color:#9a6500}
+.routine-overdue{background:#ffe7e7;color:#b72e2e}
+.routine-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;margin-left:7px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -824,6 +835,77 @@ function showDailyRoute(date=today()){
   });
 }
 
+
+function routineTaskFor(apartmentId,type){
+  return (data.tasks||[]).filter(t=>t.apartmentId===apartmentId&&t.routineType===type)
+    .sort((a,b)=>(b.completedAt||0)-(a.completedAt||0))[0]||null;
+}
+function routineLastCompleted(apartmentId,type){
+  return (data.tasks||[]).filter(t=>t.apartmentId===apartmentId&&t.routineType===type&&t.status==='Completed')
+    .sort((a,b)=>(b.completedAt||0)-(a.completedAt||0))[0]||null;
+}
+function routineNextDue(task){
+  if(!task)return '';
+  if(task.status!=='Completed')return task.date||'';
+  return nextRecurrenceDate(task.date,task.recurrence||'None');
+}
+function routineDueClass(date){
+  if(!date)return 'routine-soon';
+  if(date<today())return 'routine-overdue';
+  const d=new Date(date+'T12:00:00'), n=new Date(today()+'T12:00:00');
+  const days=Math.round((d-n)/86400000);
+  return days<=14?'routine-soon':'routine-ok';
+}
+function routineDueText(date){
+  if(!date)return 'Not scheduled';
+  if(date<today())return 'Overdue • '+fmt(date);
+  return 'Next due • '+fmt(date);
+}
+function createRoutineTask(apartmentId,type){
+  const def=type==='ac_filters'
+    ? {title:'A/C Filter Cleaning',category:'Appliance',problemTag:'Routine A/C Filters',recurrence:'Every 3 months'}
+    : {title:'Drain / Siphon Cleaning',category:'Plumbing',problemTag:'Routine Drains / Siphons',recurrence:'Monthly'};
+  const t={id:id(),createdAt:Date.now(),apartmentId,date:today(),time:'',readyBy:'',priority:'Normal',status:'Pending',assignedTo:'',description:'',materials:'',cost:'',notes:'',routineType:type,...def};
+  data.tasks.push(t);save();showTask(t.id);
+}
+function showRoutineMaintenance(apartmentId=''){
+  document.getElementById('pageTitle').textContent='Routine Maintenance';
+  let apartments=(data.apartments||[]);
+  if(apartmentId)apartments=apartments.filter(a=>a.id===apartmentId);
+  let body=apartments.length?apartments.map(a=>{
+    const ac=routineLastCompleted(a.id,'ac_filters')||routineTaskFor(a.id,'ac_filters');
+    const dr=routineLastCompleted(a.id,'drains_siphons')||routineTaskFor(a.id,'drains_siphons');
+    const acDue=routineNextDue(ac), drDue=routineNextDue(dr);
+    return `<div class="card routine-card">
+      <div class="row space"><div><div class="card-title">${esc(a.name)}</div><div class="meta">${esc(bld(a.buildingId)?.name||'')}</div></div></div>
+      <div class="routine-grid" style="margin-top:12px">
+        <div class="routine-item"><b>❄️ A/C Filters</b>
+          <div class="meta">${ac&&ac.status==='Completed'?'Last: '+fmt(ac.date):'No completed service yet'}</div>
+          <div style="margin-top:8px"><span class="routine-due ${routineDueClass(acDue)}">${routineDueText(acDue)}</span></div>
+          <button class="small-btn primary" style="margin-top:10px" onclick="createRoutineTask('${a.id}','ac_filters')">+ Service</button>
+        </div>
+        <div class="routine-item"><b>🚿 Drains / Siphons</b>
+          <div class="meta">${dr&&dr.status==='Completed'?'Last: '+fmt(dr.date):'No completed cleaning yet'}</div>
+          <div style="margin-top:8px"><span class="routine-due ${routineDueClass(drDue)}">${routineDueText(drDue)}</span></div>
+          <button class="small-btn primary" style="margin-top:10px" onclick="createRoutineTask('${a.id}','drains_siphons')">+ Cleaning</button>
+        </div>
+      </div>
+    </div>`;
+  }).join(''):'<div class="empty">No apartments yet.</div>';
+  document.getElementById('view').innerHTML=
+    `<div class="card"><div class="card-title">🔧 Routine Maintenance</div>
+      <div class="meta">Standard preventive maintenance with normal task photos, history and automatic recurrence.</div>
+    </div>${body}<button class="btn soft" onclick="route='home';render()">← Back</button>`;
+}
+function apartmentRoutineIndicator(apartmentId){
+  const types=['ac_filters','drains_siphons'];
+  return types.some(type=>{
+    const t=routineLastCompleted(apartmentId,type)||routineTaskFor(apartmentId,type);
+    const due=routineNextDue(t);
+    return due && due<=today();
+  })?'<span class="routine-dot" title="Routine maintenance due"></span>':'';
+}
+
 function renderHome(){
   let open=data.tasks.filter(t=>t.status!=='Completed'), due=open.filter(t=>t.date===today()), overdue=open.filter(t=>t.date&&t.date<today());
   let upcoming=open.filter(t=>t.date>today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
@@ -1107,6 +1189,7 @@ function renderMore(){
       <input id="safetyRestoreInput" type="file" accept=".json,application/json" hidden onchange="importBackup(this.files[0])">
     </div>
     <div class="card"><div class="card-title">This Month</div><div class="summary-grid"><div class="summary-box"><b>${ms.tasks}</b><span>Tasks</span></div><div class="summary-box"><b>${ms.completed}</b><span>Completed</span></div><div class="summary-box"><b>€${ms.cost.toFixed(2)}</b><span>Costs</span></div><div class="summary-box"><b>${money(ms.quoteTotal)}</b><span>Quotations</span></div></div></div>
+    <div class="card"><div class="card-title">🔧 Routine Maintenance</div><p class="muted">A/C filter cleaning and drain / siphon cleaning, with photos, history and recurring schedules.</p><button class="btn primary" onclick="showRoutineMaintenance()">Open Routine Maintenance</button></div>
     <div class="card"><div class="card-title">Maintenance Automation</div><p class="muted">Recurring maintenance creates the next task automatically after completion. Before/After comparison is available from each task. Daily Route groups today’s visits by property and puts urgent work first.</p><button class="btn soft" onclick="showDailyRoute(today())">🧭 Open Daily Route</button></div>
     <div class="card"><div class="card-title">Client-Ready Reports</div><p class="muted">From any task, open Client Report to create a branded MGV service report with work details, inspections, photos and signature lines.</p></div>
     <div class="card"><div class="card-title">Daily Reports</div><p class="muted">Export tasks and inspections for any day as a detailed report with photos.</p><div class="row" style="flex-wrap:wrap"><input id="moreReportDate" type="date" value="${today()}" style="padding:10px;border:1px solid #d8e0ea;border-radius:12px"><button class="btn primary" onclick="showDailyReport(document.getElementById('moreReportDate').value)">Open Daily Report</button></div></div>
@@ -1224,6 +1307,8 @@ function taskForm(t={},apartmentId=''){
 }
 
 const TASK_TEMPLATES=[
+{name:'A/C Filter Cleaning',category:'Appliance',priority:'Normal',title:'A/C Filter Cleaning',problemTag:'Routine A/C Filters',recurrence:'Every 3 months',routineType:'ac_filters'},
+{name:'Drain / Siphon Cleaning',category:'Plumbing',priority:'Normal',title:'Drain / Siphon Cleaning',problemTag:'Routine Drains / Siphons',recurrence:'Monthly',routineType:'drains_siphons'},
 {name:'Plumbing leak',category:'Plumbing',priority:'Urgent',title:'Repair plumbing leak',problemTag:'Plumbing leak'},
 {name:'A/C problem',category:'Appliance',priority:'High',title:'Check / repair A/C',problemTag:'A/C problem'},
 {name:'Painting',category:'Painting',priority:'Normal',title:'Painting repair',problemTag:'Painting'},
