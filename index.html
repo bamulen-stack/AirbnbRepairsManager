@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.2 Dashboard Colors</title>
+<title>Airbnb Repairs Manager v9.3 Clickable Dashboard</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -210,6 +210,13 @@ textarea{min-height:90px;resize:vertical}
 }
 .today-accent h2{color:#0b63ce;margin:0}
 .section-head.urgent-head h2{color:#b91c1c}
+</style>
+
+<style>
+.dashboard-link{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+.dashboard-link:active{transform:scale(.97)}
+.dashboard-link:focus{outline:3px solid rgba(11,99,206,.22);outline-offset:2px}
+.dashboard-link .tap-hint{font-size:11px;opacity:.72;margin-top:5px;font-weight:700}
 </style>
 </head>
 <body>
@@ -621,22 +628,40 @@ document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.datas
   if(route==='finance')renderFinance();
   if(route==='more')renderMore();
 }
+
+function openDashboardTasks(filter='Open',special='',priority=''){
+  window.taskFilter=filter;
+  window.taskSpecial=special;
+  window.taskPri=priority;
+  window.taskQ='';
+  route='tasks';
+  render();
+}
+function openDashboardQuotes(){
+  route='quotes';
+  render();
+}
+function openDashboardCosts(){
+  route='more';
+  render();
+}
+
 function renderHome(){
   let open=data.tasks.filter(t=>t.status!=='Completed'), due=open.filter(t=>t.date===today()), overdue=open.filter(t=>t.date&&t.date<today());
   let upcoming=open.filter(t=>t.date>today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
   let urgent=open.filter(t=>t.priority==='Urgent').slice(0,5), ms=monthlyStats();
   document.getElementById('view').innerHTML=
-    `<div class="hero"><div class="today">Today</div><div class="row space"><div><strong>${due.length}</strong><div class="sub">scheduled jobs</div></div><div style="font-size:42px">🛠️</div></div></div>
+    `<div class="hero dashboard-link" tabindex="0" onclick="openDashboardTasks('Open','today','')"><div class="today">Today</div><div class="row space"><div><strong>${due.length}</strong><div class="sub">scheduled jobs</div><div class="tap-hint">Tap to view</div></div><div style="font-size:42px">🛠️</div></div></div>
     <div class="stats">
-      <div class="stat stat-open"><b>${open.length}</b><span>Open</span></div>
-      <div class="stat stat-overdue"><b>${overdue.length}</b><span>Overdue</span></div>
-      <div class="stat stat-urgent"><b>${urgent.length}</b><span>Urgent</span></div>
+      <div class="stat stat-open dashboard-link" tabindex="0" onclick="openDashboardTasks('Open','','')"><b>${open.length}</b><span>Open</span><div class="tap-hint">Tap to view</div></div>
+      <div class="stat stat-overdue dashboard-link" tabindex="0" onclick="openDashboardTasks('Open','overdue','')"><b>${overdue.length}</b><span>Overdue</span><div class="tap-hint">Tap to view</div></div>
+      <div class="stat stat-urgent dashboard-link" tabindex="0" onclick="openDashboardTasks('Open','','Urgent')"><b>${urgent.length}</b><span>Urgent</span><div class="tap-hint">Tap to view</div></div>
     </div>
     <div class="summary-grid">
-      <div class="summary-box summary-tasks"><b>${ms.tasks}</b><span>Tasks this month</span></div>
-      <div class="summary-box summary-completed"><b>${ms.completed}</b><span>Completed</span></div>
-      <div class="summary-box summary-costs"><b>€${ms.cost.toFixed(0)}</b><span>Recorded costs</span></div>
-      <div class="summary-box summary-quotes"><b>${ms.quotes}</b><span>Quotations</span></div>
+      <div class="summary-box summary-tasks dashboard-link" tabindex="0" onclick="openDashboardTasks('All','month','')"><b>${ms.tasks}</b><span>Tasks this month</span><div class="tap-hint">Tap to view</div></div>
+      <div class="summary-box summary-completed dashboard-link" tabindex="0" onclick="openDashboardTasks('Completed','','')"><b>${ms.completed}</b><span>Completed</span><div class="tap-hint">Tap to view</div></div>
+      <div class="summary-box summary-costs dashboard-link" tabindex="0" onclick="openDashboardCosts()"><b>€${ms.cost.toFixed(0)}</b><span>Recorded costs</span><div class="tap-hint">Tap for summary</div></div>
+      <div class="summary-box summary-quotes dashboard-link" tabindex="0" onclick="openDashboardQuotes()"><b>${ms.quotes}</b><span>Quotations</span><div class="tap-hint">Tap to view</div></div>
     </div>
     <div class="section-head urgent-head"><h2>Urgent Repairs</h2><button class="small-btn primary" onclick="chooseTemplate()">+ Quick Task</button></div>
     ${urgent.length?urgent.map(t=>taskCard(t).replace('class="card"','class="card urgent-card"')).join(''):'<div class="empty" style="background:#fff7f7;border-color:#f3cccc;color:#9f3434">No urgent repairs.</div>'}
@@ -712,15 +737,28 @@ function apartmentCard(a){
   return `<div class="card" onclick="showApartment('${a.id}')"><div class="row space"><div><div class="card-title">🏠 ${esc(a.name)}</div><div class="meta">${esc(a.address||'')}${a.floor?' • Floor '+esc(a.floor):''}</div></div><div class="row"><button class="pin-btn" onclick="event.stopPropagation();toggleFavorite('${a.id}')">${isFavorite(a.id)?'⭐':'☆'}</button><span class="badge">${open} open</span></div></div></div>`
 }
 function renderTasks(){
-  let f=window.taskFilter||'Open', q=window.taskQ||'', pri=window.taskPri||'';
+  let f=window.taskFilter||'Open', q=window.taskQ||'', pri=window.taskPri||'', special=window.taskSpecial||'';
   let arr=[...data.tasks].sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
   if(f==='Open')arr=arr.filter(t=>t.status!=='Completed'); else if(f!=='All')arr=arr.filter(t=>t.status===f);
-  if(q)arr=arr.filter(t=>taskMatches(t,q));if(pri)arr=arr.filter(t=>t.priority===pri);
-  let chips=['Open','Pending','In Progress','Completed','All'].map(x=>`<button class="small-btn ${f===x?'primary':'soft'}" onclick="window.taskFilter='${x}';renderTasks()">${x}</button>`).join('');
+  if(special==='overdue')arr=arr.filter(t=>t.status!=='Completed'&&t.date&&t.date<today());
+  if(special==='today')arr=arr.filter(t=>t.status!=='Completed'&&t.date===today());
+  if(special==='month')arr=arr.filter(t=>(t.date||'').startsWith(today().slice(0,7)));
+  if(q)arr=arr.filter(t=>taskMatches(t,q));
+  if(pri)arr=arr.filter(t=>t.priority===pri);
+
+  let chips=['Open','Pending','In Progress','Completed','All'].map(x=>`<button class="small-btn ${f===x&&!special?'primary':'soft'}" onclick="window.taskFilter='${x}';window.taskSpecial='';window.taskPri='';renderTasks()">${x}</button>`).join('');
+  let context='';
+  if(special==='overdue')context='<div class="card" style="background:#fff2df;border-color:#ffd29a"><b style="color:#c66a00">Overdue tasks</b><div class="meta">Open tasks with a date before today.</div></div>';
+  if(special==='today')context='<div class="card" style="background:#eef7ff;border-color:#cfe4fb"><b style="color:#0b63ce">Today</b><div class="meta">Tasks scheduled for today.</div></div>';
+  if(special==='month')context='<div class="card" style="background:#eef5ff;border-color:#cbdcff"><b style="color:#315f9b">Tasks this month</b></div>';
+  if(pri==='Urgent')context='<div class="card" style="background:#feecec;border-color:#f6bcbc"><b style="color:#c62828">Urgent tasks</b></div>';
+
   document.getElementById('view').innerHTML=
-    `<input id="taskSearchInput" class="search" placeholder="🔍 Search task, apartment, building, status..." value="${esc(q)}" oninput="scheduleTaskSearch(this)">
-    <div class="filters"><select onchange="window.taskPri=this.value;renderTasks()"><option value="">All priorities</option><option ${pri==='Urgent'?'selected':''}>Urgent</option><option ${pri==='High'?'selected':''}>High</option><option ${pri==='Normal'?'selected':''}>Normal</option></select></div>
-    <div class="row" style="overflow:auto;margin-bottom:12px">${chips}</div>${arr.length?arr.map(taskCard).join(''):'<div class="empty">No tasks here.</div>'}`;
+    `${context}
+    <input id="taskSearchInput" class="search" placeholder="🔍 Search task, apartment, building, status..." value="${esc(q)}" oninput="scheduleTaskSearch(this)">
+    <div class="filters"><select onchange="window.taskPri=this.value;window.taskSpecial='';renderTasks()"><option value="">All priorities</option><option ${pri==='Urgent'?'selected':''}>Urgent</option><option ${pri==='High'?'selected':''}>High</option><option ${pri==='Normal'?'selected':''}>Normal</option></select></div>
+    <div class="row" style="overflow:auto;margin-bottom:12px">${chips}</div>
+    ${arr.length?arr.map(taskCard).join(''):'<div class="empty">No tasks here.</div>'}`;
 }
 function renderCalendar(){
   let groups={};
@@ -1075,7 +1113,11 @@ function importBackup(file){
   r.onerror=()=>alert('Could not read the selected backup file.');
   r.readAsText(file,'UTF-8');
 }
-document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{route=n.dataset.route;render()});
+document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
+  route=n.dataset.route;
+  if(route==='tasks'){window.taskSpecial='';}
+  render()
+});
 document.getElementById('quickAdd').onclick=()=>chooseTemplate();
 initializeSafeData().finally(()=>{
   let importedTask=importMGVQuote();

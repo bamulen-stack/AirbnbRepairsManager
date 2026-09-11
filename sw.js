@@ -1,4 +1,4 @@
-const CACHE='airbnb-repairs-v9-2-dashboard-colors-1';
+const CACHE='airbnb-repairs-v9-3-clickable-dashboard-1';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{
