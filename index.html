@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.5 Simple Inspection</title>
+<title>Airbnb Repairs Manager v9.6 Inspection Indicators</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -729,7 +729,10 @@ function buildingCard(b){
 }
 function apartmentCard(a){
   let open=data.tasks.filter(t=>t.apartmentId===a.id&&t.status!=='Completed').length;
-  return `<div class="card" onclick="showApartment('${a.id}')"><div class="row space"><div><div class="card-title">🏠 ${esc(a.name)}</div><div class="meta">${esc(a.address||'')}${a.floor?' • Floor '+esc(a.floor):''}</div></div><div class="row"><button class="pin-btn" onclick="event.stopPropagation();toggleFavorite('${a.id}')">${isFavorite(a.id)?'⭐':'☆'}</button><span class="badge">${open} open</span></div></div></div>`
+  let activeIns=(data.inspections||[]).filter(i=>i.apartmentId===a.id&&i.status!=='Completed'&&(i.issues||[]).length);
+  let issueCount=activeIns.reduce((n,i)=>n+(i.issues||[]).length,0);
+  let insBadge=issueCount?`<button class="badge" style="border:0;cursor:pointer;background:${issueCount===1?'#fff3cd':'#fee2e2'};color:${issueCount===1?'#a16207':'#b91c1c'};font-weight:800" onclick="event.stopPropagation();showInspection('${activeIns[0].id}')">🔎 Inspection ${issueCount}</button>`:'';
+  return `<div class="card" onclick="showApartment('${a.id}')"><div class="row space"><div><div class="card-title">🏠 ${esc(a.name)}</div><div class="meta">${esc(a.address||'')}${a.floor?' • Floor '+esc(a.floor):''}</div>${insBadge?`<div style="margin-top:8px">${insBadge}</div>`:''}</div><div class="row"><button class="pin-btn" onclick="event.stopPropagation();toggleFavorite('${a.id}')">${isFavorite(a.id)?'⭐':'☆'}</button><span class="badge">${open} open</span></div></div></div>`
 }
 
 function completedMonthKey(t){
