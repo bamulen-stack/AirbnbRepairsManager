@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.9 Building Photo Editable</title>
+<title>Airbnb Repairs Manager v9.11 Daily Reports</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -238,6 +238,27 @@ textarea{min-height:90px;resize:vertical}
 .building-mini{font-size:12px;font-weight:800;padding:5px 8px;border-radius:999px;background:#eef5ff;color:#315f9b}
 .building-mini.open{background:#ecf9f0;color:#238636}
 .building-mini.inspection{background:#feecec;color:#b91c1c}
+</style>
+
+<style>
+.daily-report-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.daily-report-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
+.daily-report-summary .box{border:1px solid #dfe7ef;border-radius:14px;padding:10px;text-align:center;background:#f8fbff}
+.daily-report-summary b{display:block;font-size:22px;color:#0b63ce}
+.daily-report-section{margin-top:22px}
+.daily-report-item{border:1px solid #dfe7ef;border-radius:16px;padding:14px;margin:10px 0;break-inside:avoid}
+.daily-report-item h3{margin:0 0 6px;font-size:17px}
+.daily-report-meta{color:#667085;font-size:13px;line-height:1.45}
+.daily-report-badges{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}
+.daily-report-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.daily-report-photos img{width:100%;height:150px;object-fit:cover;border-radius:10px}
+.daily-report-problem{border-left:5px solid #dc2626}
+.report-date-picker{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.report-date-picker input{padding:10px 12px;border:1px solid #d8e0ea;border-radius:12px;background:#fff}
+@media print{
+  .daily-report-photos img{height:125px}
+  .daily-report-item{box-shadow:none}
+}
 </style>
 </head>
 <body>
@@ -621,9 +642,29 @@ function statusBadge(t){
   let p=(t.priority||'Normal'),pc=p==='Urgent'?'urgent':p==='High'?'high':'';
   return '<div class="badges"><span class="badge '+c+'">'+esc(s)+'</span><span class="badge '+pc+'">'+esc(p)+'</span></div>'
 }
+
+
+function statusOnlyBadge(t){
+  const s=t.status||'Pending';
+  if(s==='Completed')return '<span class="badge" style="background:#dcfce7;color:#166534">Completed</span>';
+  if(s==='In Progress')return '<span class="badge" style="background:#dff0ff;color:#075c9e">In Progress</span>';
+  return '<span class="badge" style="background:#fff4d6;color:#805d00">Pending</span>';
+}
+
+function priorityBadge(t){
+  const p=t.priority||'Normal';
+  if(p==='Urgent')return '<span class="badge" style="background:#fee2e2;color:#b91c1c">Urgent</span>';
+  if(p==='High')return '<span class="badge" style="background:#ffedd5;color:#c2410c">High</span>';
+  return '<span class="badge" style="background:#dbeafe;color:#1d4ed8">Normal</span>';
+}
+
 function taskCard(t){
   let a=apt(t.apartmentId);
-  return `<div class="card" onclick="showTask('${t.id}')"><div class="row space"><div><div class="card-title">${esc(t.title)}</div><div class="meta">${esc(a?a.name:'')}${a&&a.floor?' • Floor '+esc(a.floor):''}</div></div><span style="font-size:20px">›</span></div><div class="meta">${fmt(t.date)}${t.time?' • '+esc(t.time):''}${t.readyBy?' • Ready by '+new Date(t.readyBy).toLocaleString():''}${t.category?' • '+esc(t.category):''}</div>${statusBadge(t)}<div class="task-mini"><button class="task-pending" onclick="event.stopPropagation();setTaskStatus('${t.id}','Pending')">Pending</button><button class="task-progress" onclick="event.stopPropagation();setTaskStatus('${t.id}','In Progress')">In Progress</button><button class="task-done" onclick="event.stopPropagation();setTaskStatus('${t.id}','Completed')">Complete</button></div></div>`
+  return `<div class="card" onclick="showTask('${t.id}')">
+    <div class="row space"><div><div class="card-title">${esc(t.title)}</div><div class="meta">${esc(a?a.name:'')}${a&&a.floor?' • Floor '+esc(a.floor):''}</div></div><span style="font-size:20px">›</span></div>
+    <div class="meta">${fmt(t.date)}${t.time?' • '+esc(t.time):''}${t.readyBy?' • Ready by '+new Date(t.readyBy).toLocaleString():''}${t.category?' • '+esc(t.category):''}</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">${statusOnlyBadge(t)}${priorityBadge(t)}</div>
+  </div>`
 }
 function render(){
   
@@ -683,7 +724,7 @@ function renderHome(){
     </div>
     <div class="section-head urgent-head"><h2>Urgent Repairs</h2><button class="small-btn primary" onclick="chooseTemplate()">+ Quick Task</button></div>
     ${urgent.length?urgent.map(t=>taskCard(t).replace('class="card"','class="card urgent-card"')).join(''):'<div class="empty" style="background:#fff7f7;border-color:#f3cccc;color:#9f3434">No urgent repairs.</div>'}
-    <div class="today-accent"><div class="section-head" style="margin:0"><h2>Today</h2><button class="small-btn soft" onclick="newTask()">+ Blank Task</button></div></div>
+    <div class="today-accent"><div class="section-head" style="margin:0"><h2>Today</h2><div class="row"><button class="small-btn primary" onclick="showDailyReport(today())">📄 Daily Report</button><button class="small-btn soft" onclick="newTask()">+ Blank Task</button></div></div></div>
     ${due.length?due.map(taskCard).join(''):'<div class="empty">No work scheduled for today.</div>'}
     <div class="section-head"><h2>Upcoming</h2></div>${upcoming.length?upcoming.map(taskCard).join(''):'<div class="empty">No upcoming work.</div>'}`;
 }
@@ -916,6 +957,7 @@ function renderMore(){
       <input id="safetyRestoreInput" type="file" accept=".json,application/json" hidden onchange="importBackup(this.files[0])">
     </div>
     <div class="card"><div class="card-title">This Month</div><div class="summary-grid"><div class="summary-box"><b>${ms.tasks}</b><span>Tasks</span></div><div class="summary-box"><b>${ms.completed}</b><span>Completed</span></div><div class="summary-box"><b>€${ms.cost.toFixed(2)}</b><span>Costs</span></div><div class="summary-box"><b>${money(ms.quoteTotal)}</b><span>Quotations</span></div></div></div>
+    <div class="card"><div class="card-title">Daily Reports</div><p class="muted">Export tasks and inspections for any day as a detailed report with photos.</p><div class="row" style="flex-wrap:wrap"><input id="moreReportDate" type="date" value="${today()}" style="padding:10px;border:1px solid #d8e0ea;border-radius:12px"><button class="btn primary" onclick="showDailyReport(document.getElementById('moreReportDate').value)">Open Daily Report</button></div></div>
     <div class="card"><div class="card-title">Backup & Export</div><p class="muted">Backups include buildings, apartments, tasks, photos, purchases, quotations, favorites and inspections.</p><div class="row" style="flex-wrap:wrap"><button class="btn primary" onclick="downloadSafetyBackup()">Backup JSON</button><label class="btn soft">Restore JSON<input type="file" accept=".json" hidden onchange="importBackup(this.files[0])"></label><button class="btn soft" onclick="exportCsv()">Export CSV</button></div></div>
     <div class="card"><div class="card-title">Update Safety</div><p class="muted">App updates no longer require clearing Chrome data. The service worker checks for a new version and activates it automatically.</p><button class="btn soft" onclick="forceAppUpdate()">Check for app update</button></div>
     <div class="card"><div class="card-title">Favorites</div><p class="muted">${favorites().length} favorite apartments. Use ☆ / ⭐ in Properties.</p></div>
@@ -1198,6 +1240,95 @@ function closePhotoViewer(){
 function duplicateTask(i){
   let t=data.tasks.find(x=>x.id===i);if(!t)return;let copy={...t,id:id(),title:t.title+' (Copy)',status:'Pending',date:today(),createdAt:Date.now()};delete copy.completedAt;data.tasks.push(copy);save();showTask(copy.id);
 }
+
+function dailyTaskPhotos(taskId){
+  return (data.photos||[]).filter(p=>p.taskId===taskId&&p.dataUrl);
+}
+function dailyInspectionPhoto(issue){
+  if(!issue||!issue.photoId)return null;
+  return (data.photos||[]).find(p=>p.id===issue.photoId&&p.dataUrl)||null;
+}
+function dailyLocation(apartmentId){
+  const a=apt(apartmentId),b=a?.buildingId?bld(a.buildingId):null;
+  return {a,b,label:[b?.name,a?.name].filter(Boolean).join(' • ')};
+}
+function dailyTaskHtml(t){
+  const loc=dailyLocation(t.apartmentId),ps=dailyTaskPhotos(t.id);
+  return `<div class="daily-report-item">
+    <h3>${esc(t.title||'Task')}</h3>
+    <div class="daily-report-meta">${esc(loc.label||'')}${loc.a?.floor?' • Floor '+esc(loc.a.floor):''}${t.category?' • '+esc(t.category):''}</div>
+    <div class="daily-report-badges">${statusOnlyBadge(t)}${priorityBadge(t)}</div>
+    ${t.description?`<div><b>Description:</b> ${esc(t.description)}</div>`:''}
+    ${t.notes?`<div><b>Notes:</b> ${esc(t.notes)}</div>`:''}
+    ${t.materials?`<div><b>Materials:</b> ${esc(t.materials)}</div>`:''}
+    ${t.cost?`<div><b>Cost:</b> €${esc(t.cost)}</div>`:''}
+    ${t.assignedTo?`<div><b>Assigned to:</b> ${esc(t.assignedTo)}</div>`:''}
+    ${ps.length?`<div class="daily-report-photos">${ps.map(p=>`<div><img src="${p.dataUrl}"><div class="meta">${esc(p.type||'Photo')}</div></div>`).join('')}</div>`:''}
+  </div>`;
+}
+function dailyInspectionHtml(ins){
+  const loc=dailyLocation(ins.apartmentId),issues=ins.issues||[];
+  return `<div class="daily-report-item">
+    <h3>🔎 Inspection — ${esc(loc.label||'Apartment')}</h3>
+    <div class="daily-report-meta">${issues.length} problem(s) • ${esc(ins.status||'Open')}</div>
+    ${issues.length?issues.map(it=>{
+      const ph=dailyInspectionPhoto(it);
+      return `<div class="daily-report-item daily-report-problem" style="margin:10px 0 0">
+        <h3 style="font-size:15px">⚠ ${esc(it.title||'Problem')}</h3>
+        ${it.note?`<div>${esc(it.note)}</div>`:''}
+        ${ph?`<div class="daily-report-photos"><div><img src="${ph.dataUrl}"></div></div>`:''}
+      </div>`;
+    }).join(''):'<div class="muted" style="margin-top:8px">No problems recorded.</div>'}
+  </div>`;
+}
+function showDailyReport(date=today()){
+  const tasks=(data.tasks||[]).filter(t=>t.date===date);
+  const inspections=(data.inspections||[]).filter(i=>i.date===date);
+  const completed=tasks.filter(t=>t.status==='Completed').length;
+  const open=tasks.filter(t=>t.status!=='Completed').length;
+  const urgent=tasks.filter(t=>t.priority==='Urgent').length;
+  const issues=inspections.reduce((n,i)=>n+(i.issues||[]).length,0);
+  const costs=tasks.reduce((s,t)=>s+(parseFloat(t.cost)||0),0);
+
+  document.getElementById('pageTitle').textContent='Daily Report';
+  document.getElementById('view').innerHTML=
+    `<div class="report">
+      <div class="daily-report-head">
+        <div><h2 style="margin:0">Airbnb Maintenance — Daily Report</h2><div class="muted">${fmt(date)}</div></div>
+      </div>
+      <div class="report-date-picker no-print">
+        <input id="dailyReportDate" type="date" value="${date}">
+        <button class="small-btn primary" onclick="showDailyReport(document.getElementById('dailyReportDate').value)">Load Date</button>
+      </div>
+      <div class="daily-report-summary">
+        <div class="box"><b>${tasks.length}</b><span>Tasks</span></div>
+        <div class="box"><b>${completed}</b><span>Completed</span></div>
+        <div class="box"><b>${open}</b><span>Open</span></div>
+        <div class="box"><b>${urgent}</b><span>Urgent</span></div>
+        <div class="box"><b>${inspections.length}</b><span>Inspections</span></div>
+        <div class="box"><b>${issues}</b><span>Problems found</span></div>
+      </div>
+      ${costs?`<div style="margin:8px 0"><b>Recorded task costs:</b> €${costs.toFixed(2)}</div>`:''}
+      <div class="daily-report-section"><h2>Works</h2>${tasks.length?tasks.map(dailyTaskHtml).join(''):'<div class="empty">No tasks recorded for this date.</div>'}</div>
+      <div class="daily-report-section"><h2>Inspections</h2>${inspections.length?inspections.map(dailyInspectionHtml).join(''):'<div class="empty">No inspections recorded for this date.</div>'}</div>
+    </div>
+    <div class="row no-print" style="margin-top:12px;flex-wrap:wrap">
+      <button class="btn primary" onclick="window.print()">📄 Print / Save PDF</button>
+      <button class="btn soft" onclick="shareDailyReport('${date}')">Share Summary</button>
+      <button class="btn soft" onclick="route='home';render()">← Back</button>
+    </div>`;
+}
+async function shareDailyReport(date){
+  const tasks=(data.tasks||[]).filter(t=>t.date===date);
+  const inspections=(data.inspections||[]).filter(i=>i.date===date);
+  const completed=tasks.filter(t=>t.status==='Completed').length;
+  const urgent=tasks.filter(t=>t.priority==='Urgent').length;
+  const issues=inspections.reduce((n,i)=>n+(i.issues||[]).length,0);
+  let text=`Airbnb Maintenance Daily Report\n${fmt(date)}\nTasks: ${tasks.length} | Completed: ${completed} | Urgent: ${urgent}\nInspections: ${inspections.length} | Problems found: ${issues}`;
+  if(navigator.share){try{await navigator.share({title:'Daily Maintenance Report',text})}catch(e){}}
+  else{try{await navigator.clipboard.writeText(text);alert('Report summary copied.')}catch(e){alert(text)}}
+}
+
 function showWorkReport(i){
   let t=data.tasks.find(x=>x.id===i),a=apt(t.apartmentId),b=a?.buildingId?bld(a.buildingId):null,ps=(data.photos||[]).filter(p=>p.taskId===i);
   document.getElementById('pageTitle').textContent='Work Report';
