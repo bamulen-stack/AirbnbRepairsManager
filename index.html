@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.18.1 Stable Pro</title>
+<title>Airbnb Repairs Manager v9.18.2 Core Fix</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -605,7 +605,7 @@ function deleteInspectionIssue(insId,issueId){
   if(ids.length)data.photos=(data.photos||[]).filter(p=>!ids.includes(p.id));
   ins.issues=ins.issues.filter(x=>x.id!==issueId);save();showInspection(insId);
 }
-async function inspectionIssuePhotoIds(it){
+function inspectionIssuePhotoIds(it){
   let ids=Array.isArray(it.photoIds)?[...it.photoIds]:[];
   if(it.photoId&&!ids.includes(it.photoId))ids.unshift(it.photoId);
   return ids;
