@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.7 Inspection Gallery</title>
+<title>Airbnb Repairs Manager v9.8 Building Inspection Photos</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -227,6 +227,17 @@ textarea{min-height:90px;resize:vertical}
 .completed-month[open] summary:after{content:"▴"}
 .completed-month-count{background:#ecf9f0;color:#238636;padding:4px 9px;border-radius:999px;font-size:12px}
 .completed-month-body{padding:0 12px 12px}
+</style>
+
+<style>
+.building-card-inner{display:flex;align-items:center;gap:12px}
+.building-photo{width:78px;height:78px;flex:0 0 78px;border-radius:14px;object-fit:cover;background:#eef3f8}
+.building-main{min-width:0;flex:1}
+.building-alert-dot{width:14px;height:14px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 3px #fee2e2;display:inline-block}
+.building-stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.building-mini{font-size:12px;font-weight:800;padding:5px 8px;border-radius:999px;background:#eef5ff;color:#315f9b}
+.building-mini.open{background:#ecf9f0;color:#238636}
+.building-mini.inspection{background:#feecec;color:#b91c1c}
 </style>
 </head>
 <body>
@@ -535,7 +546,7 @@ async function saveInspectionIssuePhotoFile(insId,issueId,file){
   if(!file)return;
   let ins=inspectionById(insId),it=ins?.issues?.find(x=>x.id===issueId);if(!it)return;
   try{
-    const dataUrl=await fileToDataUrl(file);
+    const dataUrl=await resizeImage(file,1400,.78);
     data.photos=data.photos||[];
     if(it.photoId)data.photos=data.photos.filter(p=>p.id!==it.photoId);
     let pid=id();
@@ -735,9 +746,43 @@ function renderProperties(){
     `<div class="section-head"><h2>Standalone apartments</h2><span class="muted">${sa.length}</span></div>`+
     (sa.length?sa.map(apartmentCard).join(''):'<div class="empty">No standalone apartments.</div>');
 }
+
+const BUILDING_PHOTOS={"Muses Residence": "https://mygreekvacations.com/images/projects/banners/a046aa4IMG_6462.jpg", "Olympus": "https://mygreekvacations.com/images/projects/banners/eec7d66Olympus%20Residence%20-%20Photo1.jpg", "Olympus Residence": "https://mygreekvacations.com/images/projects/banners/eec7d66Olympus%20Residence%20-%20Photo1.jpg", "Hercules Residence": "https://mygreekvacations.com/images/projects/banners/995d93dHercules_Residence_Photo4.jpg", "The Edge Luxury Residences": "https://www.theedgeluxuryresidences.gr/files/images/gallery/the-edge-luxury-residences-athens-1.jpg", "The Edge": "https://www.theedgeluxuryresidences.gr/files/images/gallery/the-edge-luxury-residences-athens-1.jpg"};
+function buildingPhotoUrl(b){
+  if(!b)return'';
+  if(b.photoUrl)return b.photoUrl;
+  if(BUILDING_PHOTOS[b.name])return BUILDING_PHOTOS[b.name];
+  const name=(b.name||'').toLowerCase();
+  for(const [k,v] of Object.entries(BUILDING_PHOTOS))if(name.includes(k.toLowerCase())||k.toLowerCase().includes(name))return v;
+  return '';
+}
+function buildingInspectionInfo(buildingId){
+  const apartmentIds=data.apartments.filter(a=>a.buildingId===buildingId).map(a=>a.id);
+  const active=(data.inspections||[]).filter(i=>apartmentIds.includes(i.apartmentId)&&i.status!=='Completed'&&(i.issues||[]).length);
+  const issueCount=active.reduce((n,i)=>n+(i.issues||[]).length,0);
+  const aptCount=new Set(active.map(i=>i.apartmentId)).size;
+  return {issueCount,aptCount,first:active[0]||null};
+}
+
 function buildingCard(b){
-  let count=data.apartments.filter(a=>a.buildingId===b.id).length;
-  return '<div class="card" onclick="showBuilding(\''+b.id+'\')"><div class="row space"><div><div class="card-title">🏢 '+esc(b.name)+'</div><div class="meta">'+esc(b.address||'')+'</div></div><span class="badge">'+count+' apt</span></div></div>'
+  let apartments=data.apartments.filter(a=>a.buildingId===b.id);
+  let count=apartments.length;
+  let ids=apartments.map(a=>a.id);
+  let open=data.tasks.filter(t=>ids.includes(t.apartmentId)&&t.status!=='Completed').length;
+  let ii=buildingInspectionInfo(b.id);
+  let photo=buildingPhotoUrl(b);
+  let photoHtml=photo?`<img class="building-photo" src="${photo}" alt="${esc(b.name)}" loading="lazy" onerror="this.style.display='none'">`:'';
+  let dot=ii.issueCount?'<span class="building-alert-dot" title="Inspection problem"></span>':'';
+  let inspectionChip=ii.issueCount?`<span class="building-mini inspection">🔎 ${ii.issueCount} Inspection</span>`:'';
+  return `<div class="card" onclick="showBuilding('${b.id}')">
+    <div class="building-card-inner">
+      ${photoHtml}
+      <div class="building-main">
+        <div class="row space"><div><div class="card-title">🏢 ${esc(b.name)}</div><div class="meta">${esc(b.address||'')}</div></div>${dot}</div>
+        <div class="building-stats"><span class="building-mini">${count} apt</span><span class="building-mini open">${open} open</span>${inspectionChip}</div>
+      </div>
+    </div>
+  </div>`
 }
 function apartmentCard(a){
   let open=data.tasks.filter(t=>t.apartmentId===a.id&&t.status!=='Completed').length;
