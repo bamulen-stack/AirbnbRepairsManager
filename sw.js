@@ -1,4 +1,4 @@
-const CACHE='airbnb-repairs-v9-8-building-inspection-photos';
+const CACHE='airbnb-repairs-v9-9-building-photo-editable';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.8 Building Inspection Photos</title>
+<title>Airbnb Repairs Manager v9.9 Building Photo Editable</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -929,6 +929,40 @@ function openSheet(title,body,handler){
   document.getElementById('sheetForm').onsubmit=e=>{e.preventDefault();handler(Object.fromEntries(new FormData(e.target)));closeSheet();save();render()}
 }
 function closeSheet(){document.getElementById('overlay').classList.remove('show')}
+
+async function saveBuildingPhotoFile(buildingId,file){
+  if(!file)return;
+  let b=bld(buildingId);if(!b)return;
+  try{
+    const dataUrl=await resizeImage(file,1400,.78);
+    b.photoUrl=dataUrl;
+    save();
+    editBuilding(buildingId);
+  }catch(e){alert('Could not add building photo.');}
+}
+function chooseBuildingPhotoGallery(buildingId){
+  let input=document.createElement('input');
+  input.type='file';
+  input.accept='image/*';
+  input.onchange=()=>saveBuildingPhotoFile(buildingId,input.files&&input.files[0]);
+  input.click();
+}
+function chooseBuildingPhotoCamera(buildingId){
+  let input=document.createElement('input');
+  input.type='file';
+  input.accept='image/*';
+  input.capture='environment';
+  input.onchange=()=>saveBuildingPhotoFile(buildingId,input.files&&input.files[0]);
+  input.click();
+}
+function removeBuildingPhoto(buildingId){
+  let b=bld(buildingId);if(!b)return;
+  if(!confirm('Remove this building photo?'))return;
+  b.photoUrl='';
+  save();
+  editBuilding(buildingId);
+}
+
 function buildingForm(b={}){
   return '<div class="form"><label>Building name<input name="name" required value="'+esc(b.name||'')+'"></label><label>Address<input name="address" value="'+esc(b.address||'')+'"></label><div class="form two"><label>Entrance code<input name="entranceCode" value="'+esc(b.entranceCode||'')+'"></label><label>Access notes<input name="accessNotes" value="'+esc(b.accessNotes||'')+'"></label></div><label>Notes<textarea name="notes">'+esc(b.notes||'')+'</textarea></label></div>'
 }
@@ -951,9 +985,18 @@ function deleteBuilding(buildingId){
   closeSheet();save();route='properties';selected=null;render();
 }
 function editBuilding(i){
-  let b=bld(i);
-  const del='<div style="margin-top:22px;padding-top:18px;border-top:1px solid #e3e8ef"><button type="button" onclick="deleteBuilding(\''+b.id+'\')" style="width:100%;border:0;border-radius:18px;padding:16px 18px;background:#fee2e2;color:#b91c1c;font-size:17px;font-weight:800">🗑 Delete Building</button><div style="margin-top:8px;color:#8a94a5;font-size:13px;text-align:center">Deletes this building and its apartments after confirmation.</div></div>';
-  openSheet('Edit Building',buildingForm(b)+del,v=>Object.assign(b,v))
+  let b=bld(i);if(!b)return;
+  let currentPhoto=buildingPhotoUrl(b);
+  let photoBlock=`<div class="card" style="margin-bottom:14px">
+    <div class="card-title">Building Photo</div>
+    ${currentPhoto?`<img src="${currentPhoto}" style="width:100%;max-height:240px;object-fit:cover;border-radius:14px;margin-top:10px" onerror="this.style.display='none'">`:'<div class="empty" style="margin-top:10px">No building photo selected.</div>'}
+    <div class="row" style="flex-wrap:wrap;margin-top:10px">
+      <button type="button" class="small-btn primary" onclick="chooseBuildingPhotoGallery('${b.id}')">🖼 Gallery</button>
+      <button type="button" class="small-btn soft" onclick="chooseBuildingPhotoCamera('${b.id}')">📷 Camera</button>
+      ${b.photoUrl?`<button type="button" class="small-btn danger" onclick="removeBuildingPhoto('${b.id}')">Remove Photo</button>`:''}
+    </div>
+  </div>`;
+  openSheet('Edit Building',photoBlock+buildingForm(b),v=>Object.assign(b,v))
 }
 function apartmentForm(a={}){
   let opts='<option value="">Standalone apartment</option>'+data.buildings.map(b=>'<option value="'+b.id+'" '+(a.buildingId===b.id?'selected':'')+'>'+esc(b.name)+'</option>').join('');
