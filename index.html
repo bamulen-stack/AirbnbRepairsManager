@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.11 Daily Reports</title>
+<title>Airbnb Repairs Manager v9.12 Real PDF Save</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -1281,6 +1281,236 @@ function dailyInspectionHtml(ins){
     }).join(''):'<div class="muted" style="margin-top:8px">No problems recorded.</div>'}
   </div>`;
 }
+
+function pdfWrapLines(ctx,text,maxWidth){
+  text=String(text||'');
+  const words=text.split(/\s+/), lines=[];let line='';
+  for(const word of words){
+    const test=line?line+' '+word:word;
+    if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=word}else line=test;
+  }
+  if(line)lines.push(line);
+  return lines.length?lines:[''];
+}
+function pdfDrawWrapped(ctx,text,x,y,maxWidth,lineHeight){
+  const lines=pdfWrapLines(ctx,text,maxWidth);
+  lines.forEach((line,i)=>ctx.fillText(line,x,y+i*lineHeight));
+  return y+lines.length*lineHeight;
+}
+function pdfLoadImage(src){
+  return new Promise(resolve=>{
+    if(!src){resolve(null);return}
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=()=>resolve(null);
+    img.src=src;
+  });
+}
+function pdfAddJpegPages(jpegs){
+  const enc=new TextEncoder();
+  const chunks=[];
+  let length=0;
+  const offsets=[0];
+  function pushString(s){
+    const b=enc.encode(s);chunks.push(b);length+=b.length;
+  }
+  function pushBytes(b){chunks.push(b);length+=b.length}
+  function addObj(num,bodyParts){
+    offsets[num]=length;
+    pushString(num+' 0 obj\n');
+    for(const part of bodyParts){
+      if(typeof part==='string')pushString(part); else pushBytes(part);
+    }
+    pushString('\nendobj\n');
+  }
+
+  pushString('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+  const pageCount=jpegs.length;
+  const pageNums=[], imageNums=[], contentNums=[];
+  let next=3;
+  for(let i=0;i<pageCount;i++){
+    pageNums.push(next++); imageNums.push(next++); contentNums.push(next++);
+  }
+  addObj(1,['<< /Type /Catalog /Pages 2 0 R >>']);
+  addObj(2,[`<< /Type /Pages /Count ${pageCount} /Kids [${pageNums.map(n=>n+' 0 R').join(' ')}] >>`]);
+
+  for(let i=0;i<pageCount;i++){
+    const jpeg=jpegs[i];
+    const imgBytes=jpeg.bytes;
+    const pageW=595.28,pageH=841.89;
+    addObj(imageNums[i],[`<< /Type /XObject /Subtype /Image /Width ${jpeg.width} /Height ${jpeg.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`,imgBytes,'\nendstream']);
+    const stream=`q\n${pageW} 0 0 ${pageH} 0 0 cm\n/Im0 Do\nQ\n`;
+    const sb=enc.encode(stream);
+    addObj(contentNums[i],[`<< /Length ${sb.length} >>\nstream\n`,sb,'endstream']);
+    addObj(pageNums[i],[`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im0 ${imageNums[i]} 0 R >> >> /Contents ${contentNums[i]} 0 R >>`]);
+  }
+
+  const xref=length;
+  const total=next;
+  pushString(`xref\n0 ${total}\n`);
+  pushString('0000000000 65535 f \n');
+  for(let i=1;i<total;i++)pushString(String(offsets[i]||0).padStart(10,'0')+' 00000 n \n');
+  pushString(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+
+  const out=new Uint8Array(length);let pos=0;
+  chunks.forEach(c=>{out.set(c,pos);pos+=c.length});
+  return out;
+}
+async function buildDailyReportPdf(date){
+  const tasks=(data.tasks||[]).filter(t=>t.date===date);
+  const inspections=(data.inspections||[]).filter(i=>i.date===date);
+  const completed=tasks.filter(t=>t.status==='Completed').length;
+  const open=tasks.filter(t=>t.status!=='Completed').length;
+  const urgent=tasks.filter(t=>t.priority==='Urgent').length;
+  const issues=inspections.reduce((n,i)=>n+(i.issues||[]).length,0);
+
+  const W=1240,H=1754,M=75;
+  const pages=[];
+  function newPage(){
+    const c=document.createElement('canvas');c.width=W;c.height=H;
+    const ctx=c.getContext('2d');
+    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
+    ctx.textBaseline='top';ctx.fillStyle='#0f172a';
+    return {c,ctx,y:M};
+  }
+  let pg=newPage();
+
+  function header(title,subtitle){
+    const {ctx}=pg;
+    ctx.fillStyle='#0b63ce';ctx.fillRect(0,0,W,150);
+    ctx.fillStyle='#fff';ctx.font='700 42px Arial, sans-serif';ctx.fillText(title,M,35);
+    ctx.font='24px Arial, sans-serif';ctx.fillText(subtitle,M,92);
+    pg.y=190;
+  }
+  function ensure(space){
+    if(pg.y+space>H-M){
+      pages.push(pg.c);pg=newPage();header('Airbnb Maintenance — Daily Report',fmt(date));
+    }
+  }
+  function drawSectionTitle(text){
+    ensure(70);
+    pg.ctx.fillStyle='#0f172a';pg.ctx.font='700 34px Arial, sans-serif';
+    pg.ctx.fillText(text,M,pg.y);pg.y+=55;
+  }
+  function drawText(label,value){
+    if(value===undefined||value===null||value==='')return;
+    const ctx=pg.ctx;ctx.font='700 24px Arial, sans-serif';ctx.fillStyle='#334155';
+    const labelW=ctx.measureText(label+': ').width;
+    ctx.fillText(label+': ',M,pg.y);
+    ctx.font='24px Arial, sans-serif';ctx.fillStyle='#0f172a';
+    pg.y=pdfDrawWrapped(ctx,String(value),M+labelW,pg.y,W-M*2-labelW,32)+8;
+  }
+  function drawPill(text,bg,fg,x,y){
+    const ctx=pg.ctx;ctx.font='700 21px Arial, sans-serif';
+    const w=ctx.measureText(text).width+36;
+    ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect(x,y,w,42,21);ctx.fill();
+    ctx.fillStyle=fg;ctx.fillText(text,x+18,y+9);
+    return w;
+  }
+  async function drawPhoto(src){
+    const img=await pdfLoadImage(src);if(!img)return;
+    const maxW=W-M*2, maxH=520;
+    const scale=Math.min(maxW/img.width,maxH/img.height,1.6);
+    const dw=img.width*scale,dh=img.height*scale;
+    ensure(dh+30);
+    pg.ctx.drawImage(img,M,pg.y,dw,dh);pg.y+=dh+25;
+  }
+  async function drawTask(t,index){
+    ensure(220);
+    const loc=dailyLocation(t.apartmentId),ctx=pg.ctx;
+    ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.roundRect(M-18,pg.y-12,W-M*2+36,150,18);ctx.fill();
+    ctx.fillStyle='#0f172a';ctx.font='700 30px Arial, sans-serif';
+    pg.y=pdfDrawWrapped(ctx,(index+1)+'. '+(t.title||'Task'),M,pg.y,W-M*2,38)+6;
+    ctx.font='22px Arial, sans-serif';ctx.fillStyle='#64748b';
+    pg.y=pdfDrawWrapped(ctx,loc.label+(loc.a?.floor?' • Floor '+loc.a.floor:'')+(t.category?' • '+t.category:''),M,pg.y,W-M*2,30)+10;
+    let x=M;
+    const status=t.status||'Pending';
+    x+=drawPill(status,status==='Completed'?'#dcfce7':status==='In Progress'?'#dff0ff':'#fff4d6',status==='Completed'?'#166534':status==='In Progress'?'#075c9e':'#805d00',x,pg.y)+10;
+    const pr=t.priority||'Normal';
+    drawPill(pr,pr==='Urgent'?'#fee2e2':pr==='High'?'#ffedd5':'#dbeafe',pr==='Urgent'?'#b91c1c':pr==='High'?'#c2410c':'#1d4ed8',x,pg.y);
+    pg.y+=58;
+    drawText('Description',t.description);drawText('Notes',t.notes);drawText('Materials',t.materials);
+    if(t.cost)drawText('Cost','€'+t.cost);
+    if(t.assignedTo)drawText('Assigned to',t.assignedTo);
+    const ps=dailyTaskPhotos(t.id);
+    for(const ph of ps)await drawPhoto(ph.dataUrl);
+    pg.y+=20;
+  }
+  async function drawInspection(ins,index){
+    ensure(180);
+    const loc=dailyLocation(ins.apartmentId),ctx=pg.ctx;
+    ctx.fillStyle='#eef5ff';ctx.beginPath();ctx.roundRect(M-18,pg.y-12,W-M*2+36,120,18);ctx.fill();
+    ctx.fillStyle='#0f172a';ctx.font='700 30px Arial, sans-serif';
+    pg.y=pdfDrawWrapped(ctx,`Inspection ${index+1} — ${loc.label||'Apartment'}`,M,pg.y,W-M*2,38)+6;
+    ctx.font='22px Arial, sans-serif';ctx.fillStyle='#64748b';
+    ctx.fillText(`${(ins.issues||[]).length} problem(s) • ${ins.status||'Open'}`,M,pg.y);pg.y+=45;
+    for(const issue of (ins.issues||[])){
+      ensure(170);
+      ctx.fillStyle='#fff1f2';ctx.beginPath();ctx.roundRect(M,pg.y-8,W-M*2,110,14);ctx.fill();
+      ctx.fillStyle='#b91c1c';ctx.font='700 26px Arial, sans-serif';
+      pg.y=pdfDrawWrapped(ctx,'⚠ '+(issue.title||'Problem'),M+18,pg.y,W-M*2-36,34)+4;
+      if(issue.note){ctx.fillStyle='#0f172a';ctx.font='23px Arial, sans-serif';pg.y=pdfDrawWrapped(ctx,issue.note,M+18,pg.y,W-M*2-36,31)+8}
+      const ph=dailyInspectionPhoto(issue);
+      if(ph)await drawPhoto(ph.dataUrl);
+      pg.y+=14;
+    }
+  }
+
+  header('Airbnb Maintenance — Daily Report',fmt(date));
+  pg.ctx.fillStyle='#0f172a';pg.ctx.font='700 30px Arial, sans-serif';
+  pg.ctx.fillText('Summary',M,pg.y);pg.y+=52;
+  const summary=[
+    ['Tasks',tasks.length],['Completed',completed],['Open',open],
+    ['Urgent',urgent],['Inspections',inspections.length],['Problems found',issues]
+  ];
+  const boxW=(W-M*2-30)/3,boxH=115;
+  summary.forEach((s,i)=>{
+    const col=i%3,row=Math.floor(i/3),x=M+col*(boxW+15),y=pg.y+row*(boxH+15);
+    pg.ctx.fillStyle='#f8fbff';pg.ctx.strokeStyle='#cbd5e1';pg.ctx.lineWidth=2;
+    pg.ctx.beginPath();pg.ctx.roundRect(x,y,boxW,boxH,18);pg.ctx.fill();pg.ctx.stroke();
+    pg.ctx.fillStyle='#0b63ce';pg.ctx.font='700 34px Arial, sans-serif';pg.ctx.fillText(String(s[1]),x+18,y+18);
+    pg.ctx.fillStyle='#64748b';pg.ctx.font='20px Arial, sans-serif';pg.ctx.fillText(s[0],x+18,y+64);
+  });
+  pg.y+=2*(boxH+15)+25;
+
+  drawSectionTitle('Works');
+  if(!tasks.length){pg.ctx.font='24px Arial, sans-serif';pg.ctx.fillStyle='#64748b';pg.ctx.fillText('No tasks recorded for this date.',M,pg.y);pg.y+=50}
+  for(let i=0;i<tasks.length;i++)await drawTask(tasks[i],i);
+
+  drawSectionTitle('Inspections');
+  if(!inspections.length){pg.ctx.font='24px Arial, sans-serif';pg.ctx.fillStyle='#64748b';pg.ctx.fillText('No inspections recorded for this date.',M,pg.y);pg.y+=50}
+  for(let i=0;i<inspections.length;i++)await drawInspection(inspections[i],i);
+
+  pages.push(pg.c);
+
+  const jpegs=[];
+  for(const c of pages){
+    const dataUrl=c.toDataURL('image/jpeg',0.86);
+    const b64=dataUrl.split(',')[1],bin=atob(b64),bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    jpegs.push({bytes,width:c.width,height:c.height});
+  }
+  return pdfAddJpegPages(jpegs);
+}
+async function saveDailyReportPdf(date){
+  try{
+    const btn=document.getElementById('savePdfBtn');
+    if(btn){btn.disabled=true;btn.textContent='Creating PDF...'}
+    const bytes=await buildDailyReportPdf(date);
+    const blob=new Blob([bytes],{type:'application/pdf'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='Daily_Report_'+date+'.pdf';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    if(btn){btn.disabled=false;btn.textContent='💾 Save PDF'}
+  }catch(e){
+    const btn=document.getElementById('savePdfBtn');
+    if(btn){btn.disabled=false;btn.textContent='💾 Save PDF'}
+    alert('Could not create the PDF. Please try again.');
+  }
+}
+
 function showDailyReport(date=today()){
   const tasks=(data.tasks||[]).filter(t=>t.date===date);
   const inspections=(data.inspections||[]).filter(i=>i.date===date);
@@ -1313,7 +1543,8 @@ function showDailyReport(date=today()){
       <div class="daily-report-section"><h2>Inspections</h2>${inspections.length?inspections.map(dailyInspectionHtml).join(''):'<div class="empty">No inspections recorded for this date.</div>'}</div>
     </div>
     <div class="row no-print" style="margin-top:12px;flex-wrap:wrap">
-      <button class="btn primary" onclick="window.print()">📄 Print / Save PDF</button>
+      <button id="savePdfBtn" class="btn primary" onclick="saveDailyReportPdf('${date}')">💾 Save PDF</button>
+      <button class="btn soft" onclick="window.print()">🖨 Print</button>
       <button class="btn soft" onclick="shareDailyReport('${date}')">Share Summary</button>
       <button class="btn soft" onclick="route='home';render()">← Back</button>
     </div>`;
