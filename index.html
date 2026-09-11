@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.19 Routine Maintenance</title>
+<title>Airbnb Repairs Manager v9.20 Routine Search Groups</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -311,6 +311,22 @@ textarea{min-height:90px;resize:vertical}
 .routine-soon{background:#fff4d8;color:#9a6500}
 .routine-overdue{background:#ffe7e7;color:#b72e2e}
 .routine-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;margin-left:7px;vertical-align:middle}
+</style>
+
+<style>
+.routine-toolbar{position:sticky;top:88px;z-index:8;background:var(--bg);padding:8px 0 10px}
+.routine-search{width:100%;border:1px solid #d8deea;border-radius:14px;padding:12px 14px;background:#fff}
+.routine-filter-row{display:flex;gap:8px;overflow:auto;padding:8px 0 2px}
+.routine-filter-btn{white-space:nowrap;border:0;border-radius:999px;padding:8px 12px;font-weight:800;background:#eef4fb;color:#315f9b}
+.routine-filter-btn.active{background:#0b63ce;color:#fff}
+.routine-building{margin:12px 0}
+.routine-building-head{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid #dfe7ef;border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+.routine-building-head h3{margin:0;font-size:18px}
+.routine-building-body{padding-top:10px}
+.routine-apartment{background:#fff;border:1px solid #dfe7ef;border-radius:16px;padding:14px;margin-bottom:10px}
+.routine-apartment-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.routine-apartment-title{font-weight:900}
+.routine-count{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -868,34 +884,111 @@ function createRoutineTask(apartmentId,type){
   const t={id:id(),createdAt:Date.now(),apartmentId,date:today(),time:'',readyBy:'',priority:'Normal',status:'Pending',assignedTo:'',description:'',materials:'',cost:'',notes:'',routineType:type,...def};
   data.tasks.push(t);save();showTask(t.id);
 }
+function routineStatusFor(apartmentId,type){
+  const t=routineLastCompleted(apartmentId,type)||routineTaskFor(apartmentId,type);
+  const due=routineNextDue(t);
+  if(!t)return 'not_scheduled';
+  if(due&&due<today())return 'overdue';
+  if(due){
+    const d=new Date(due+'T12:00:00'),n=new Date(today()+'T12:00:00');
+    const days=Math.round((d-n)/86400000);
+    if(days<=14)return 'due_soon';
+  }
+  if(t.status==='Completed')return 'completed';
+  return 'scheduled';
+}
+function routineMatchesFilter(a,filter){
+  if(!filter||filter==='all')return true;
+  const ac=routineStatusFor(a.id,'ac_filters'),dr=routineStatusFor(a.id,'drains_siphons');
+  if(filter==='favorites')return isFavorite(a.id);
+  if(filter==='overdue')return ac==='overdue'||dr==='overdue';
+  if(filter==='due_soon')return ac==='due_soon'||dr==='due_soon';
+  if(filter==='not_scheduled')return ac==='not_scheduled'||dr==='not_scheduled';
+  if(filter==='completed')return ac==='completed'&&dr==='completed';
+  return true;
+}
 function showRoutineMaintenance(apartmentId=''){
+  window.routineQ=window.routineQ||'';
+  window.routineFilter=window.routineFilter||'all';
   document.getElementById('pageTitle').textContent='Routine Maintenance';
-  let apartments=(data.apartments||[]);
-  if(apartmentId)apartments=apartments.filter(a=>a.id===apartmentId);
-  let body=apartments.length?apartments.map(a=>{
-    const ac=routineLastCompleted(a.id,'ac_filters')||routineTaskFor(a.id,'ac_filters');
-    const dr=routineLastCompleted(a.id,'drains_siphons')||routineTaskFor(a.id,'drains_siphons');
-    const acDue=routineNextDue(ac), drDue=routineNextDue(dr);
-    return `<div class="card routine-card">
-      <div class="row space"><div><div class="card-title">${esc(a.name)}</div><div class="meta">${esc(bld(a.buildingId)?.name||'')}</div></div></div>
-      <div class="routine-grid" style="margin-top:12px">
-        <div class="routine-item"><b>❄️ A/C Filters</b>
-          <div class="meta">${ac&&ac.status==='Completed'?'Last: '+fmt(ac.date):'No completed service yet'}</div>
-          <div style="margin-top:8px"><span class="routine-due ${routineDueClass(acDue)}">${routineDueText(acDue)}</span></div>
-          <button class="small-btn primary" style="margin-top:10px" onclick="createRoutineTask('${a.id}','ac_filters')">+ Service</button>
-        </div>
-        <div class="routine-item"><b>🚿 Drains / Siphons</b>
-          <div class="meta">${dr&&dr.status==='Completed'?'Last: '+fmt(dr.date):'No completed cleaning yet'}</div>
-          <div style="margin-top:8px"><span class="routine-due ${routineDueClass(drDue)}">${routineDueText(drDue)}</span></div>
-          <button class="small-btn primary" style="margin-top:10px" onclick="createRoutineTask('${a.id}','drains_siphons')">+ Cleaning</button>
-        </div>
+
+  let q=(window.routineQ||'').trim().toLowerCase();
+  let apartments=(data.apartments||[]).filter(a=>{
+    if(apartmentId&&a.id!==apartmentId)return false;
+    const b=a.buildingId?bld(a.buildingId):null;
+    const hay=[a.name,a.address,a.floor,b?.name,b?.address].join(' ').toLowerCase();
+    if(q&&!hay.includes(q))return false;
+    return routineMatchesFilter(a,window.routineFilter);
+  });
+
+  const groups=new Map();
+  apartments.forEach(a=>{
+    const b=a.buildingId?bld(a.buildingId):null;
+    const key=b?'b:'+b.id:'standalone';
+    if(!groups.has(key))groups.set(key,{b,apartments:[]});
+    groups.get(key).apartments.push(a);
+  });
+
+  const filterBtn=(key,label)=>`<button class="routine-filter-btn ${window.routineFilter===key?'active':''}" onclick="window.routineFilter='${key}';showRoutineMaintenance('${apartmentId}')">${label}</button>`;
+
+  let groupHtml=[...groups.values()].map(g=>{
+    const name=g.b?.name||'Standalone apartments';
+    const aps=g.apartments.sort(smartApartmentSort);
+    return `<div class="routine-building">
+      <div class="routine-building-head">
+        <div><h3>${esc(name)}</h3><div class="routine-count">${aps.length} apartment${aps.length===1?'':'s'}</div></div>
+      </div>
+      <div class="routine-building-body">
+        ${aps.map(a=>{
+          const ac=routineLastCompleted(a.id,'ac_filters')||routineTaskFor(a.id,'ac_filters');
+          const dr=routineLastCompleted(a.id,'drains_siphons')||routineTaskFor(a.id,'drains_siphons');
+          const acDue=routineNextDue(ac),drDue=routineNextDue(dr);
+          return `<div class="routine-apartment">
+            <div class="routine-apartment-head">
+              <div><div class="routine-apartment-title">${esc(a.name)}</div><div class="meta">${a.floor?'Floor '+esc(a.floor):''}</div></div>
+              ${isFavorite(a.id)?'<span>⭐</span>':''}
+            </div>
+            <div class="routine-grid" style="margin-top:12px">
+              <div class="routine-item"><b>❄️ A/C Filters</b>
+                <div class="meta">${ac&&ac.status==='Completed'?'Last: '+fmt(ac.date):'No completed service yet'}</div>
+                <div style="margin-top:8px"><span class="routine-due ${routineDueClass(acDue)}">${routineDueText(acDue)}</span></div>
+                <button class="small-btn primary" style="margin-top:10px" onclick="createRoutineTask('${a.id}','ac_filters')">+ Service</button>
+              </div>
+              <div class="routine-item"><b>🚿 Drains / Siphons</b>
+                <div class="meta">${dr&&dr.status==='Completed'?'Last: '+fmt(dr.date):'No completed cleaning yet'}</div>
+                <div style="margin-top:8px"><span class="routine-due ${routineDueClass(drDue)}">${routineDueText(drDue)}</span></div>
+                <button class="small-btn primary" style="margin-top:10px" onclick="createRoutineTask('${a.id}','drains_siphons')">+ Cleaning</button>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
-  }).join(''):'<div class="empty">No apartments yet.</div>';
+  }).join('');
+
   document.getElementById('view').innerHTML=
-    `<div class="card"><div class="card-title">🔧 Routine Maintenance</div>
-      <div class="meta">Standard preventive maintenance with normal task photos, history and automatic recurrence.</div>
-    </div>${body}<button class="btn soft" onclick="route='home';render()">← Back</button>`;
+    `<div class="routine-toolbar">
+      <input id="routineSearchInput" class="routine-search" placeholder="🔍 Search apartment, building, address or floor..." value="${esc(window.routineQ||'')}">
+      <div class="routine-filter-row">
+        ${filterBtn('all','All')}
+        ${filterBtn('overdue','Overdue')}
+        ${filterBtn('due_soon','Due soon')}
+        ${filterBtn('not_scheduled','Not scheduled')}
+        ${filterBtn('completed','Completed')}
+        ${filterBtn('favorites','⭐ Favorites')}
+      </div>
+    </div>
+    <div class="card"><div class="card-title">🔧 Routine Maintenance</div><div class="meta">Grouped by building. Search or filter to find the apartment quickly.</div></div>
+    ${groupHtml||'<div class="empty">No apartments match the current search/filter.</div>'}
+    <button class="btn soft" onclick="route='home';render()">← Back</button>`;
+
+  let inp=document.getElementById('routineSearchInput');
+  let timer=null;
+  inp?.addEventListener('input',e=>{
+    const v=e.target.value;
+    clearTimeout(timer);
+    timer=setTimeout(()=>{window.routineQ=v;showRoutineMaintenance(apartmentId)},250);
+  });
 }
 function apartmentRoutineIndicator(apartmentId){
   const types=['ac_filters','drains_siphons'];
