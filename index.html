@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.16.1 Daily Report Fix</title>
+<title>Airbnb Repairs Manager v9.18 Pro Maintenance</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -266,6 +266,40 @@ textarea{min-height:90px;resize:vertical}
 .inspection-photo{position:relative}
 .inspection-photo img{width:100%;height:150px;object-fit:cover;border-radius:12px;display:block}
 .inspection-photo-del{position:absolute;right:6px;top:6px;border:0;background:rgba(0,0,0,.65);color:#fff;width:30px;height:30px;border-radius:50%;font-size:18px;font-weight:800}
+</style>
+
+<style>
+.daily-report-actions,.daily-report-actions *{pointer-events:auto!important}
+.daily-report-actions button{touch-action:manipulation}
+</style>
+
+<style>
+.client-report{max-width:820px;margin:0 auto;background:#fff;border-radius:18px;padding:22px}
+.client-report-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;border-bottom:3px solid #0b63ce;padding-bottom:16px;margin-bottom:18px}
+.client-brand{font-size:26px;font-weight:900;color:#0b63ce;letter-spacing:.4px}
+.client-sub{color:#64748b;font-size:13px;margin-top:3px}
+.client-report h2{margin:20px 0 10px}
+.client-kv{width:100%;border-collapse:collapse}
+.client-kv td{padding:8px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+.client-kv td:first-child{font-weight:800;width:34%;color:#334155}
+.client-signatures{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:38px}
+.client-sign-line{border-top:1px solid #64748b;padding-top:7px;text-align:center;color:#64748b;font-size:13px}
+.client-photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.client-photo-grid img{width:100%;height:220px;object-fit:cover;border-radius:12px}
+.client-problem{border-left:5px solid #dc2626;background:#fff7f7;border-radius:12px;padding:12px;margin:10px 0}
+</style>
+
+<style>
+.ba-compare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.ba-panel{background:#fff;border:1px solid #dfe7ef;border-radius:16px;padding:10px}
+.ba-panel h3{margin:0 0 8px;font-size:14px}
+.ba-panel img{width:100%;height:220px;object-fit:cover;border-radius:12px;display:block}
+.route-step{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid #dfe7ef;border-radius:18px;padding:14px;margin:10px 0}
+.route-num{width:36px;height:36px;border-radius:50%;background:#0b63ce;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;flex:0 0 36px}
+.route-main{flex:1;min-width:0}
+.route-task{padding:8px 0;border-top:1px solid #eef2f7}
+.route-task:first-of-type{border-top:0}
+.recur-badge{display:inline-block;background:#eef5ff;color:#315f9b;border-radius:999px;padding:5px 8px;font-size:12px;font-weight:800;margin-top:6px}
 </style>
 </head>
 <body>
@@ -729,6 +763,52 @@ function openDashboardCosts(){
   render();
 }
 
+
+function buildDailyRoute(date=today()){
+  const tasks=(data.tasks||[]).filter(t=>t.date===date&&t.status!=='Completed');
+  const map=new Map();
+  tasks.forEach(t=>{
+    const a=apt(t.apartmentId),b=a?.buildingId?bld(a.buildingId):null;
+    const key=b?'b:'+b.id:'a:'+t.apartmentId;
+    if(!map.has(key))map.set(key,{b,a,address:b?.address||a?.address||'',tasks:[]});
+    map.get(key).tasks.push(t);
+  });
+  const groups=[...map.values()];
+  groups.forEach(g=>g.tasks.sort((x,y)=>{
+    if((x.priority==='Urgent')!==(y.priority==='Urgent'))return x.priority==='Urgent'?-1:1;
+    return (x.time||'99:99').localeCompare(y.time||'99:99');
+  }));
+  groups.sort((x,y)=>{
+    const xu=x.tasks.some(t=>t.priority==='Urgent'),yu=y.tasks.some(t=>t.priority==='Urgent');
+    if(xu!==yu)return xu?-1:1;
+    const xt=x.tasks[0]?.time||'99:99',yt=y.tasks[0]?.time||'99:99';
+    if(xt!==yt)return xt.localeCompare(yt);
+    if(x.b&&y.b)return smartBuildingSort(x.b,y.b);
+    return 0;
+  });
+  return groups;
+}
+function openRouteMaps(address){
+  if(!address){alert('No address saved for this property.');return}
+  window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address),'_blank');
+}
+function showDailyRoute(date=today()){
+  const groups=buildDailyRoute(date);
+  document.getElementById('pageTitle').textContent='Daily Route';
+  const body=groups.length?groups.map((g,idx)=>{
+    const label=g.b?.name||g.a?.name||'Property';
+    const safeAddress=String(g.address||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<div class="route-step"><div class="route-num">${idx+1}</div><div class="route-main">
+      <div class="row space"><div><div class="card-title">${esc(label)}</div><div class="meta">${esc(g.address||'')}</div></div><button class="small-btn soft" onclick="openRouteMaps('${safeAddress}')">🗺 Maps</button></div>
+      ${g.tasks.map(t=>`<div class="route-task" onclick="showTask('${t.id}')"><b>${esc(t.title)}</b><div class="meta">${t.time?esc(t.time)+' • ':''}${esc(apt(t.apartmentId)?.name||'')} • ${esc(t.priority||'Normal')}</div></div>`).join('')}
+    </div></div>`;
+  }).join(''):'<div class="empty">No open tasks scheduled for this date.</div>';
+  document.getElementById('view').innerHTML=
+    `<div class="card"><div class="card-title">🧭 Daily Route</div><div class="meta">${fmt(date)} • same-property visits grouped together • urgent first</div>
+      <div class="report-date-picker" style="margin-top:10px"><input id="routeDate" type="date" value="${date}"><button class="small-btn primary" onclick="showDailyRoute(document.getElementById('routeDate').value)">Load</button></div></div>
+    ${body}<button class="btn soft" onclick="route='home';render()">← Back</button>`;
+}
+
 function renderHome(){
   let open=data.tasks.filter(t=>t.status!=='Completed'), due=open.filter(t=>t.date===today()), overdue=open.filter(t=>t.date&&t.date<today());
   let upcoming=open.filter(t=>t.date>today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
@@ -748,7 +828,7 @@ function renderHome(){
     </div>
     <div class="section-head urgent-head"><h2>Urgent Repairs</h2><button class="small-btn primary" onclick="chooseTemplate()">+ Quick Task</button></div>
     ${urgent.length?urgent.map(t=>taskCard(t).replace('class="card"','class="card urgent-card"')).join(''):'<div class="empty" style="background:#fff7f7;border-color:#f3cccc;color:#9f3434">No urgent repairs.</div>'}
-    <div class="today-accent"><div class="section-head" style="margin:0"><h2>Today</h2><div class="row"><button class="small-btn primary" onclick="showDailyReport(today())">📄 Daily Report</button><button class="small-btn soft" onclick="newTask()">+ Blank Task</button></div></div></div>
+    <div class="today-accent"><div class="section-head" style="margin:0"><h2>Today</h2><div class="row" style="flex-wrap:wrap"><button class="small-btn primary" onclick="showDailyReport(today())">📄 Daily Report</button><button class="small-btn soft" onclick="showDailyRoute(today())">🧭 Daily Route</button><button class="small-btn soft" onclick="newTask()">+ Blank Task</button></div></div></div>
     ${due.length?due.map(taskCard).join(''):'<div class="empty">No work scheduled for today.</div>'}
     <div class="section-head"><h2>Upcoming</h2></div>${upcoming.length?upcoming.map(taskCard).join(''):'<div class="empty">No upcoming work.</div>'}`;
 }
@@ -1012,6 +1092,8 @@ function renderMore(){
       <input id="safetyRestoreInput" type="file" accept=".json,application/json" hidden onchange="importBackup(this.files[0])">
     </div>
     <div class="card"><div class="card-title">This Month</div><div class="summary-grid"><div class="summary-box"><b>${ms.tasks}</b><span>Tasks</span></div><div class="summary-box"><b>${ms.completed}</b><span>Completed</span></div><div class="summary-box"><b>€${ms.cost.toFixed(2)}</b><span>Costs</span></div><div class="summary-box"><b>${money(ms.quoteTotal)}</b><span>Quotations</span></div></div></div>
+    <div class="card"><div class="card-title">Maintenance Automation</div><p class="muted">Recurring maintenance creates the next task automatically after completion. Before/After comparison appears inside each task. Daily Route groups today’s visits by property and puts urgent work first.</p><button class="btn soft" onclick="showDailyRoute(today())">🧭 Open Daily Route</button></div>
+    <div class="card"><div class="card-title">Client-Ready Reports</div><p class="muted">From any task, open Client Report to create a branded MGV service report with work details, inspections, photos and signature lines.</p></div>
     <div class="card"><div class="card-title">Daily Reports</div><p class="muted">Export tasks and inspections for any day as a detailed report with photos.</p><div class="row" style="flex-wrap:wrap"><input id="moreReportDate" type="date" value="${today()}" style="padding:10px;border:1px solid #d8e0ea;border-radius:12px"><button class="btn primary" onclick="showDailyReport(document.getElementById('moreReportDate').value)">Open Daily Report</button></div></div>
     <div class="card"><div class="card-title">Backup & Export</div><p class="muted">Backups include buildings, apartments, tasks, photos, purchases, quotations, favorites and inspections.</p><div class="row" style="flex-wrap:wrap"><button class="btn primary" onclick="downloadSafetyBackup()">Backup JSON</button><label class="btn soft">Restore JSON<input type="file" accept=".json" hidden onchange="importBackup(this.files[0])"></label><button class="btn soft" onclick="exportCsv()">Export CSV</button></div></div>
     <div class="card"><div class="card-title">Update Safety</div><p class="muted">App updates no longer require clearing Chrome data. The service worker checks for a new version and activates it automatically.</p><button class="btn soft" onclick="forceAppUpdate()">Check for app update</button></div>
@@ -1123,7 +1205,7 @@ function editApartment(i){
 function taskForm(t={},apartmentId=''){
   let opts=data.apartments.map(a=>'<option value="'+a.id+'" '+((t.apartmentId||apartmentId)===a.id?'selected':'')+'>'+esc(a.name)+(a.buildingId?' — '+esc(bld(a.buildingId)?.name||''):'')+'</option>').join('');
   let options=(arr,val)=>arr.map(x=>'<option '+(val===x?'selected':'')+'>'+x+'</option>').join('');
-  return '<div class="form"><label>Apartment<select name="apartmentId" required><option value="">Select...</option>'+opts+'</select></label><label>Work title<input name="title" required value="'+esc(t.title||'')+'"></label><div class="form two"><label>Date<input type="date" name="date" value="'+esc(t.date||today())+'"></label><label>Start time<input type="time" name="time" value="'+esc(t.time||'')+'"></label></div><div class="form two"><label>Ready by / Check-in deadline<input type="datetime-local" name="readyBy" value="'+esc(t.readyBy||'')+'"></label><label>Problem tag<input name="problemTag" placeholder="e.g. A/C leaking" value="'+esc(t.problemTag||'')+'"></label></div><div class="form two"><label>Category<select name="category">'+options(['Repair','Plumbing','Electrical','Painting','Carpentry','Furniture','Appliance','Partial Renovation','Inspection','Other'],t.category)+'</select></label><label>Priority<select name="priority">'+options(['Normal','High','Urgent'],t.priority||'Normal')+'</select></label></div><div class="form two"><label>Status<select name="status">'+options(['Pending','In Progress','Completed'],t.status||'Pending')+'</select></label><label>Assigned to<input name="assignedTo" value="'+esc(t.assignedTo||'')+'"></label></div><label>Description<textarea name="description">'+esc(t.description||'')+'</textarea></label><div class="form two"><label>Materials<input name="materials" value="'+esc(t.materials||'')+'"></label><label>Cost (€)<input name="cost" type="number" step="0.01" value="'+esc(t.cost||'')+'"></label></div><label>Notes<textarea name="notes">'+esc(t.notes||'')+'</textarea></label></div>';
+  return '<div class="form"><label>Apartment<select name="apartmentId" required><option value="">Select...</option>'+opts+'</select></label><label>Work title<input name="title" required value="'+esc(t.title||'')+'"></label><div class="form two"><label>Date<input type="date" name="date" value="'+esc(t.date||today())+'"></label><label>Start time<input type="time" name="time" value="'+esc(t.time||'')+'"></label></div><div class="form two"><label>Ready by / Check-in deadline<input type="datetime-local" name="readyBy" value="'+esc(t.readyBy||'')+'"></label><label>Problem tag<input name="problemTag" placeholder="e.g. A/C leaking" value="'+esc(t.problemTag||'')+'"></label></div><div class="form two"><label>Category<select name="category">'+options(['Repair','Plumbing','Electrical','Painting','Carpentry','Furniture','Appliance','Partial Renovation','Inspection','Other'],t.category)+'</select></label><label>Priority<select name="priority">'+options(['Normal','High','Urgent'],t.priority||'Normal')+'</select></label></div><div class="form two"><label>Status<select name="status">'+options(['Pending','In Progress','Completed'],t.status||'Pending')+'</select></label><label>Assigned to<input name="assignedTo" value="'+esc(t.assignedTo||'')+'"></label></div><label>Recurring maintenance<select name="recurrence">'+options(['None','Weekly','Monthly','Every 3 months','Every 6 months','Yearly'],t.recurrence||'None')+'</select></label><label>Description<textarea name="description">'+esc(t.description||'')+'</textarea></label><div class="form two"><label>Materials<input name="materials" value="'+esc(t.materials||'')+'"></label><label>Cost (€)<input name="cost" type="number" step="0.01" value="'+esc(t.cost||'')+'"></label></div><label>Notes<textarea name="notes">'+esc(t.notes||'')+'</textarea></label></div>';
 }
 
 const TASK_TEMPLATES=[
@@ -1223,12 +1305,49 @@ function importMGVQuote(){
   }catch(e){return false}
 }
 function showTask(i){
-  let t=data.tasks.find(x=>x.id===i), a=apt(t.apartmentId);selected=i;document.getElementById('pageTitle').textContent='Task Details';
-  document.getElementById('view').innerHTML='<div class="card"><div class="row space"><div><div class="card-title">'+esc(t.title)+'</div><div class="meta">'+esc(a?.name||'')+'</div></div><button class="small-btn soft" onclick="editTask(\''+i+'\')">Edit</button></div>'+statusBadge(t)+'<div class="detail-grid"><div class="detail-line">📅 '+fmt(t.date)+(t.time?' • '+esc(t.time):'')+'</div>'+(t.readyBy?'<div class="detail-line">⏰ Ready by: '+esc(new Date(t.readyBy).toLocaleString())+'</div>':'')+(t.problemTag?'<div class="detail-line">🏷 '+esc(t.problemTag)+'</div>':'')+(t.category?'<div class="detail-line">🧰 '+esc(t.category)+'</div>':'')+(t.assignedTo?'<div class="detail-line">👤 '+esc(t.assignedTo)+'</div>':'')+(t.description?'<div class="detail-line">'+esc(t.description)+'</div>':'')+(t.materials?'<div class="detail-line"><b>Materials:</b> '+esc(t.materials)+'</div>':'')+(t.cost?'<div class="detail-line"><b>Cost:</b> €'+esc(t.cost)+'</div>':'')+'</div></div>'+renderTaskPhotos(i)+'<div class="section-head"><h2>Quotation</h2><button class="small-btn primary" onclick="openPricingForTask(\''+i+'\')">💶 Create Quotation</button></div>'+taskQuotationHtml(i)+'<div class="section-head"><h2>Costs</h2><button class="small-btn primary" onclick="newPurchase(\''+i+'\')">+ Material</button></div>'+((data.purchases||[]).filter(p=>p.taskId===i).length?(data.purchases||[]).filter(p=>p.taskId===i).map(purchaseCard).join(''):'<div class="empty">No material purchases for this task.</div>')+'<div class="row no-print" style="flex-wrap:wrap">'+(t.status!=='Completed'?'<button class="btn primary" onclick="completeTask(\''+i+'\')">Complete</button>':'')+'<button class="btn soft" onclick="duplicateTask(\''+i+'\')">Duplicate</button><button class="btn soft" onclick="showWorkReport(\''+i+'\')">Work Report</button><button class="btn danger" onclick="deleteTask(\''+i+'\')">Delete</button><button class="btn soft" onclick="route=\'tasks\';render()">← Back</button></div>';
+  let t=data.tasks.find(x=>x.id===i);if(!t)return;
+  let a=apt(t.apartmentId);selected=i;document.getElementById('pageTitle').textContent='Task Details';
+  let recur=(t.recurrence&&t.recurrence!=='None')?'<div class="recur-badge">↻ '+esc(t.recurrence)+'</div>':'';
+  document.getElementById('view').innerHTML=
+    '<div class="card"><div class="row space"><div><div class="card-title">'+esc(t.title)+'</div><div class="meta">'+esc(a?.name||'')+'</div></div><button class="small-btn soft" onclick="editTask(\''+i+'\')">Edit</button></div>'+
+    statusBadge(t)+recur+
+    '<div class="detail-grid"><div class="detail-line">📅 '+fmt(t.date)+(t.time?' • '+esc(t.time):'')+'</div>'+
+    (t.readyBy?'<div class="detail-line">⏰ Ready by: '+esc(new Date(t.readyBy).toLocaleString())+'</div>':'')+
+    (t.problemTag?'<div class="detail-line">🏷 '+esc(t.problemTag)+'</div>':'')+
+    (t.category?'<div class="detail-line">🧰 '+esc(t.category)+'</div>':'')+
+    (t.assignedTo?'<div class="detail-line">👤 '+esc(t.assignedTo)+'</div>':'')+
+    (t.description?'<div class="detail-line">'+esc(t.description)+'</div>':'')+
+    (t.materials?'<div class="detail-line"><b>Materials:</b> '+esc(t.materials)+'</div>':'')+
+    (t.cost?'<div class="detail-line"><b>Cost:</b> €'+esc(t.cost)+'</div>':'')+
+    '</div></div>'+
+    renderTaskPhotos(i)+
+    '<div class="section-head"><h2>Before / After Comparison</h2></div>'+beforeAfterComparison(i)+
+    '<div class="section-head"><h2>Quotation</h2><button class="small-btn primary" onclick="openPricingForTask(\''+i+'\')">💶 Create Quotation</button></div>'+
+    taskQuotationHtml(i)+
+    '<div class="section-head"><h2>Costs</h2><button class="small-btn primary" onclick="newPurchase(\''+i+'\')">+ Material</button></div>'+
+    ((data.purchases||[]).filter(p=>p.taskId===i).length?(data.purchases||[]).filter(p=>p.taskId===i).map(purchaseCard).join(''):'<div class="empty">No material purchases for this task.</div>')+
+    '<div class="row no-print" style="flex-wrap:wrap">'+
+    (t.status!=='Completed'?'<button class="btn primary" onclick="completeTask(\''+i+'\')">Complete</button>':'')+
+    '<button class="btn soft" onclick="duplicateTask(\''+i+'\')">Duplicate</button>'+
+    '<button class="btn soft" onclick="showWorkReport(\''+i+'\')">Work Report</button>'+
+    '<button class="btn primary" onclick="showClientReadyReport(\''+i+'\')">Client Report</button>'+
+    '<button class="btn danger" onclick="deleteTask(\''+i+'\')">Delete</button>'+
+    '<button class="btn soft" onclick="route=\'tasks\';render()">← Back</button></div>';
 }
 
 let currentPhotoTask=null;
 let currentPhotoType='Before';
+
+
+function beforeAfterComparison(taskId){
+  const ps=(data.photos||[]).filter(p=>p.taskId===taskId);
+  const before=ps.find(p=>p.type==='Before'),after=ps.find(p=>p.type==='After');
+  if(!before&&!after)return '<div class="empty">Add Before and After photos to compare the repair.</div>';
+  return `<div class="ba-compare">
+    <div class="ba-panel"><h3>BEFORE</h3>${before?`<img src="${before.dataUrl}" onclick="openPhotoViewer('${before.id}')">`:'<div class="empty">No Before photo</div>'}</div>
+    <div class="ba-panel"><h3>AFTER</h3>${after?`<img src="${after.dataUrl}" onclick="openPhotoViewer('${after.id}')">`:'<div class="empty">No After photo</div>'}</div>
+  </div>`;
+}
 
 function renderTaskPhotos(taskId){
   let types=['Before','During','After'];
@@ -1586,7 +1705,7 @@ function showDailyReport(date=today()){
       </div>
       <div class="report-date-picker no-print">
         <input id="dailyReportDate" type="date" value="${date}">
-        <button class="small-btn primary" onclick="showDailyReport(document.getElementById('dailyReportDate').value)">Load Date</button>
+        <button id="dailyLoadBtn" type="button" class="small-btn primary">Load Date</button>
       </div>
       <div class="daily-report-summary">
         <div class="box"><b>${tasks.length}</b><span>Tasks</span></div>
@@ -1600,12 +1719,27 @@ function showDailyReport(date=today()){
       <div class="daily-report-section"><h2>Works</h2>${tasks.length?tasks.map(dailyTaskHtml).join(''):'<div class="empty">No tasks recorded for this date.</div>'}</div>
       <div class="daily-report-section"><h2>Inspections</h2>${inspections.length?inspections.map(dailyInspectionHtml).join(''):'<div class="empty">No inspections recorded for this date.</div>'}</div>
     </div>
-    <div class="row no-print" style="margin-top:12px;flex-wrap:wrap">
-      <button id="savePdfBtn" class="btn primary" onclick="saveDailyReportPdf('${date}')">💾 Save PDF</button>
-      <button class="btn soft" onclick="window.print()">🖨 Print</button>
-      <button class="btn soft" onclick="shareDailyReport('${date}')">Share Summary</button>
-      <button class="btn soft" onclick="route='home';render()">← Back</button>
+    <div class="row no-print daily-report-actions" style="margin-top:12px;flex-wrap:wrap;position:relative;z-index:5">
+      <button id="savePdfBtn" type="button" class="btn primary">💾 Save PDF</button>
+      <button id="dailyPrintBtn" type="button" class="btn soft">🖨 Print</button>
+      <button id="dailyShareBtn" type="button" class="btn soft">Share Summary</button>
+      <button id="dailyBackBtn" type="button" class="btn soft">← Back</button>
     </div>`;
+
+  const loadBtn=document.getElementById('dailyLoadBtn');
+  const saveBtn=document.getElementById('savePdfBtn');
+  const printBtn=document.getElementById('dailyPrintBtn');
+  const shareBtn=document.getElementById('dailyShareBtn');
+  const backBtn=document.getElementById('dailyBackBtn');
+
+  if(loadBtn) loadBtn.addEventListener('click',()=>{
+    const v=document.getElementById('dailyReportDate')?.value||date;
+    showDailyReport(v);
+  });
+  if(saveBtn) saveBtn.addEventListener('click',()=>saveDailyReportPdf(date));
+  if(printBtn) printBtn.addEventListener('click',()=>window.print());
+  if(shareBtn) shareBtn.addEventListener('click',()=>shareDailyReport(date));
+  if(backBtn) backBtn.addEventListener('click',()=>{route='home';render();});
 }
 async function shareDailyReport(date){
   const tasks=(data.tasks||[]).filter(t=>t.date===date);
@@ -1618,6 +1752,178 @@ async function shareDailyReport(date){
   else{try{await navigator.clipboard.writeText(text);alert('Report summary copied.')}catch(e){alert(text)}}
 }
 
+
+function taskInspectionIssues(taskId,apartmentId,date){
+  const inspections=(data.inspections||[]).filter(i=>i.apartmentId===apartmentId && (!date || i.date===date));
+  const out=[];
+  inspections.forEach(ins=>(ins.issues||[]).forEach(issue=>out.push({ins,issue})));
+  return out;
+}
+function showClientReadyReport(taskId){
+  const t=data.tasks.find(x=>x.id===taskId);if(!t)return;
+  const a=apt(t.apartmentId),b=a?.buildingId?bld(a.buildingId):null;
+  const ps=(data.photos||[]).filter(p=>p.taskId===taskId);
+  const related=taskInspectionIssues(taskId,t.apartmentId,t.date);
+  document.getElementById('pageTitle').textContent='Client Report';
+
+  const problemHtml=related.length?related.map(({ins,issue})=>{
+    const phs=dailyInspectionPhotos(issue);
+    return `<div class="client-problem"><b>Inspection finding:</b> ${esc(issue.title||'Problem')}
+      ${issue.note?`<div style="margin-top:6px">${esc(issue.note)}</div>`:''}
+      ${phs.length?`<div class="client-photo-grid" style="margin-top:10px">${phs.map(ph=>`<img src="${ph.dataUrl}">`).join('')}</div>`:''}
+    </div>`;
+  }).join(''):'';
+
+  document.getElementById('view').innerHTML=
+    `<div id="clientReportView" class="client-report">
+      <div class="client-report-head">
+        <div><div class="client-brand">MGV MyGreekVacations</div><div class="client-sub">Maintenance & Property Services</div></div>
+        <div style="text-align:right"><b>CLIENT SERVICE REPORT</b><div class="client-sub">${fmt(t.date)}</div></div>
+      </div>
+      <table class="client-kv">
+        ${b?`<tr><td>Building</td><td>${esc(b.name)}</td></tr>`:''}
+        <tr><td>Apartment</td><td>${esc(a?.name||'')}</td></tr>
+        ${a?.address?`<tr><td>Address</td><td>${esc(a.address)}</td></tr>`:''}
+        <tr><td>Work</td><td>${esc(t.title||'')}</td></tr>
+        <tr><td>Category</td><td>${esc(t.category||'')}</td></tr>
+        <tr><td>Status</td><td>${esc(t.status||'')}</td></tr>
+        <tr><td>Priority</td><td>${esc(t.priority||'Normal')}</td></tr>
+        ${t.description?`<tr><td>Description</td><td>${esc(t.description)}</td></tr>`:''}
+        ${t.materials?`<tr><td>Materials</td><td>${esc(t.materials)}</td></tr>`:''}
+        ${t.cost?`<tr><td>Recorded cost</td><td>€${esc(t.cost)}</td></tr>`:''}
+        ${t.notes?`<tr><td>Notes</td><td>${esc(t.notes)}</td></tr>`:''}
+      </table>
+      ${related.length?`<h2>Inspection Findings</h2>${problemHtml}`:''}
+      ${ps.length?`<h2>Work Photos</h2><div class="client-photo-grid">${ps.map(p=>`<div><img src="${p.dataUrl}"><div class="meta">${esc(p.type||'Photo')}</div></div>`).join('')}</div>`:''}
+      <div class="client-signatures">
+        <div class="client-sign-line">Technician / Maintenance</div>
+        <div class="client-sign-line">Client / Property Representative</div>
+      </div>
+      <div class="client-sub" style="margin-top:26px;text-align:center">Generated by Airbnb Repairs Manager</div>
+    </div>
+    <div class="row no-print" style="margin-top:14px;flex-wrap:wrap">
+      <button id="clientSavePdfBtn" class="btn primary" type="button">💾 Save Client PDF</button>
+      <button id="clientPrintBtn" class="btn soft" type="button">🖨 Print</button>
+      <button id="clientShareBtn" class="btn soft" type="button">Share Summary</button>
+      <button id="clientBackBtn" class="btn soft" type="button">← Back</button>
+    </div>`;
+
+  document.getElementById('clientSavePdfBtn')?.addEventListener('click',()=>saveClientReportPdf(taskId));
+  document.getElementById('clientPrintBtn')?.addEventListener('click',()=>window.print());
+  document.getElementById('clientShareBtn')?.addEventListener('click',()=>shareClientReport(taskId));
+  document.getElementById('clientBackBtn')?.addEventListener('click',()=>showTask(taskId));
+}
+async function shareClientReport(taskId){
+  const t=data.tasks.find(x=>x.id===taskId),a=apt(t?.apartmentId),b=a?.buildingId?bld(a.buildingId):null;
+  if(!t)return;
+  const text=`MGV MyGreekVacations — Client Service Report\nDate: ${fmt(t.date)}\nBuilding: ${b?.name||''}\nApartment: ${a?.name||''}\nWork: ${t.title||''}\nStatus: ${t.status||''}\nPriority: ${t.priority||'Normal'}`;
+  if(navigator.share){try{await navigator.share({title:'Client Service Report',text})}catch(e){}}
+  else{try{await navigator.clipboard.writeText(text);alert('Report summary copied.')}catch(e){alert(text)}}
+}
+async function buildClientReportPdf(taskId){
+  const t=data.tasks.find(x=>x.id===taskId);if(!t)throw new Error('Task not found');
+  const a=apt(t.apartmentId),b=a?.buildingId?bld(a.buildingId):null;
+  const ps=(data.photos||[]).filter(p=>p.taskId===taskId);
+  const related=taskInspectionIssues(taskId,t.apartmentId,t.date);
+
+  const W=1240,H=1754,M=76,CONTENT=W-M*2;
+  const pages=[];let pageNo=0;
+  function newPage(){const c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.textBaseline='top';pageNo++;return{c,ctx,y:70}}
+  let pg=newPage();
+  function header(){
+    const ctx=pg.ctx;
+    ctx.fillStyle='#0b63ce';ctx.fillRect(0,0,W,150);
+    ctx.fillStyle='#fff';ctx.font='700 42px Arial, sans-serif';ctx.fillText('MGV MyGreekVacations',M,28);
+    ctx.font='22px Arial, sans-serif';ctx.fillText('Maintenance & Property Services',M,84);
+    ctx.font='700 26px Arial, sans-serif';ctx.fillText('CLIENT SERVICE REPORT',W-M-330,38);
+    ctx.font='20px Arial, sans-serif';ctx.fillText(fmt(t.date),W-M-330,82);
+    pg.y=190;
+  }
+  function footer(){
+    const ctx=pg.ctx;ctx.strokeStyle='#e2e8f0';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(M,H-58);ctx.lineTo(W-M,H-58);ctx.stroke();
+    ctx.fillStyle='#94a3b8';ctx.font='17px Arial, sans-serif';ctx.fillText('Generated by Airbnb Repairs Manager',M,H-42);
+    const txt='Page '+pageNo;ctx.fillText(txt,W-M-ctx.measureText(txt).width,H-42);
+  }
+  function finish(){footer();pages.push(pg.c)}
+  function ensure(space){if(pg.y+space>H-92){finish();pg=newPage();header()}}
+  function line(label,value){
+    if(value===undefined||value===null||value==='')return;
+    ensure(55);
+    const ctx=pg.ctx;ctx.font='700 22px Arial, sans-serif';ctx.fillStyle='#334155';ctx.fillText(label+':',M,pg.y);
+    ctx.font='22px Arial, sans-serif';ctx.fillStyle='#0f172a';
+    pg.y=pdfDrawWrapped(ctx,String(value),M+240,pg.y,CONTENT-240,30)+9;
+    ctx.strokeStyle='#e5e7eb';ctx.beginPath();ctx.moveTo(M,pg.y);ctx.lineTo(W-M,pg.y);ctx.stroke();pg.y+=9;
+  }
+  function section(text){ensure(70);pg.ctx.fillStyle='#0f172a';pg.ctx.font='700 30px Arial, sans-serif';pg.ctx.fillText(text,M,pg.y);pg.y+=50}
+  async function photo(src){
+    const img=await pdfLoadImage(src);if(!img)return;
+    const maxW=CONTENT,maxH=430,scale=Math.min(maxW/img.width,maxH/img.height,1.5),dw=img.width*scale,dh=img.height*scale;
+    ensure(dh+30);pg.ctx.drawImage(img,M,pg.y,dw,dh);pg.y+=dh+24;
+  }
+
+  header();
+  line('Building',b?.name||'');
+  line('Apartment',a?.name||'');
+  line('Address',a?.address||'');
+  line('Work',t.title||'');
+  line('Category',t.category||'');
+  line('Status',t.status||'');
+  line('Priority',t.priority||'Normal');
+  line('Description',t.description||'');
+  line('Materials',t.materials||'');
+  if(t.cost)line('Recorded cost','€'+t.cost);
+  line('Notes',t.notes||'');
+
+  if(related.length){
+    section('Inspection Findings');
+    for(const {issue} of related){
+      ensure(120);
+      pg.ctx.fillStyle='#fff7f7';pg.ctx.strokeStyle='#f3cccc';pg.ctx.lineWidth=2;
+      pg.ctx.beginPath();pg.ctx.roundRect(M,pg.y,CONTENT,100,14);pg.ctx.fill();pg.ctx.stroke();
+      pg.ctx.fillStyle='#b91c1c';pg.ctx.font='700 24px Arial, sans-serif';
+      pg.y=pdfDrawWrapped(pg.ctx,'⚠ '+(issue.title||'Problem'),M+18,pg.y+14,CONTENT-36,31)+2;
+      if(issue.note){pg.ctx.fillStyle='#0f172a';pg.ctx.font='21px Arial, sans-serif';pg.y=pdfDrawWrapped(pg.ctx,issue.note,M+18,pg.y,CONTENT-36,29)+6}
+      const phs=dailyInspectionPhotos(issue);for(const ph of phs)await photo(ph.dataUrl);
+      pg.y+=12;
+    }
+  }
+
+  if(ps.length){
+    section('Work Photos');
+    for(const ph of ps)await photo(ph.dataUrl);
+  }
+
+  ensure(160);
+  pg.y+=45;
+  pg.ctx.strokeStyle='#64748b';pg.ctx.beginPath();pg.ctx.moveTo(M,pg.y);pg.ctx.lineTo(M+380,pg.y);pg.ctx.stroke();
+  pg.ctx.beginPath();pg.ctx.moveTo(W-M-380,pg.y);pg.ctx.lineTo(W-M,pg.y);pg.ctx.stroke();
+  pg.ctx.fillStyle='#64748b';pg.ctx.font='18px Arial, sans-serif';
+  pg.ctx.fillText('Technician / Maintenance',M+70,pg.y+10);
+  pg.ctx.fillText('Client / Property Representative',W-M-340,pg.y+10);
+
+  finish();
+
+  const jpegs=[];
+  for(const c of pages){
+    const dataUrl=c.toDataURL('image/jpeg',0.88),b64=dataUrl.split(',')[1],bin=atob(b64),bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    jpegs.push({bytes,width:c.width,height:c.height});
+  }
+  return pdfAddJpegPages(jpegs);
+}
+async function saveClientReportPdf(taskId){
+  const btn=document.getElementById('clientSavePdfBtn');
+  try{
+    if(btn){btn.disabled=true;btn.textContent='Creating PDF...'}
+    const bytes=await buildClientReportPdf(taskId);
+    const blob=new Blob([bytes],{type:'application/pdf'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    const t=data.tasks.find(x=>x.id===taskId);
+    a.href=url;a.download='Client_Report_'+(t?.date||today())+'.pdf';document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+  }catch(e){alert('Could not create the client PDF.');}
+  finally{if(btn){btn.disabled=false;btn.textContent='💾 Save Client PDF'}}
+}
+
 function showWorkReport(i){
   let t=data.tasks.find(x=>x.id===i),a=apt(t.apartmentId),b=a?.buildingId?bld(a.buildingId):null,ps=(data.photos||[]).filter(p=>p.taskId===i);
   document.getElementById('pageTitle').textContent='Work Report';
@@ -1628,7 +1934,32 @@ async function shareReport(i){
   if(navigator.share){try{await navigator.share({title:'Work Report',text})}catch(e){}}else{try{await navigator.clipboard.writeText(text);alert('Report text copied.')}catch(e){alert(text)}}
 }
 
-function completeTask(i){let t=data.tasks.find(x=>x.id===i);t.status='Completed';save();render();showTask(i)}
+
+function nextRecurrenceDate(date,recurrence){
+  if(!date||!recurrence||recurrence==='None')return '';
+  const d=new Date(date+'T12:00:00');
+  if(recurrence==='Weekly')d.setDate(d.getDate()+7);
+  else if(recurrence==='Monthly')d.setMonth(d.getMonth()+1);
+  else if(recurrence==='Every 3 months')d.setMonth(d.getMonth()+3);
+  else if(recurrence==='Every 6 months')d.setMonth(d.getMonth()+6);
+  else if(recurrence==='Yearly')d.setFullYear(d.getFullYear()+1);
+  else return '';
+  return d.toISOString().slice(0,10);
+}
+function createNextRecurringTask(t){
+  if(!t||!t.recurrence||t.recurrence==='None'||t.nextRecurringCreated)return null;
+  const nextDate=nextRecurrenceDate(t.date,t.recurrence); if(!nextDate)return null;
+  const copy={...t,id:id(),date:nextDate,status:'Pending',createdAt:Date.now()};
+  delete copy.completedAt;delete copy.nextRecurringCreated;
+  data.tasks.push(copy);t.nextRecurringCreated=copy.id;return copy;
+}
+function completeTask(i){
+  let t=data.tasks.find(x=>x.id===i);if(!t)return;
+  t.status='Completed';t.completedAt=Date.now();
+  const next=createNextRecurringTask(t);
+  save();render();showTask(i);
+  if(next)alert('Recurring maintenance: next task created for '+fmt(next.date)+'.');
+}
 function deleteTask(i){if(confirm('Delete this task and its photos?')){data.tasks=data.tasks.filter(x=>x.id!==i);data.photos=(data.photos||[]).filter(p=>p.taskId!==i);save();route='tasks';render()}}
 function exportBackup(){
   downloadSafetyBackup()

@@ -1,4 +1,4 @@
-const CACHE='airbnb-repairs-v9-16-1-daily-report-fix';
+const CACHE='airbnb-repairs-v9-18-pro-maintenance';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{
