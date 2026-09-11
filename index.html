@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.12 Real PDF Save</title>
+<title>Airbnb Repairs Manager v9.14 Smart Visit Order</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -260,6 +260,13 @@ textarea{min-height:90px;resize:vertical}
   .daily-report-item{box-shadow:none}
 }
 </style>
+
+<style>
+.inspection-photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.inspection-photo{position:relative}
+.inspection-photo img{width:100%;height:150px;object-fit:cover;border-radius:12px;display:block}
+.inspection-photo-del{position:absolute;right:6px;top:6px;border:0;background:rgba(0,0,0,.65);color:#fff;width:30px;height:30px;border-radius:50%;font-size:18px;font-weight:800}
+</style>
 </head>
 <body>
 <header class="app-header">
@@ -479,11 +486,11 @@ async function initializeSafeData(){
 
 let data=loadData(), route='home', selected=null;
 
-function fresh(){return {buildings:[],apartments:[],tasks:[],photos:[],purchases:[],quotations:[],favorites:[],inspections:[]}}
+function fresh(){return {buildings:[],apartments:[],tasks:[],photos:[],purchases:[],quotations:[],favorites:[],inspections:[],visitHistory:{buildings:{},apartments:{}}}}
 function loadData(){try{
       let d=JSON.parse(localStorage.getItem(KEY))||fresh();
       d.buildings=d.buildings||[];d.apartments=d.apartments||[];d.tasks=d.tasks||[];d.photos=d.photos||[];
-      d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];d.inspections=d.inspections||[];return ensureCodesImport(ensureMGVSeed(d))
+      d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];d.inspections=d.inspections||[];d.visitHistory=d.visitHistory||{buildings:{},apartments:{}};d.visitHistory.buildings=d.visitHistory.buildings||{};d.visitHistory.apartments=d.visitHistory.apartments||{};return ensureCodesImport(ensureMGVSeed(d))
     }catch(e){return ensureCodesImport(ensureMGVSeed(fresh()))}}
 function save(){
   localStorage.setItem(KEY,JSON.stringify(data));
@@ -560,33 +567,50 @@ function deleteInspectionIssue(insId,issueId){
   if(!confirm('Delete this problem?'))return;
   let ins=inspectionById(insId);if(!ins)return;
   let it=ins.issues.find(x=>x.id===issueId);
-  if(it&&it.photoId)data.photos=(data.photos||[]).filter(p=>p.id!==it.photoId);
+  let ids=it?inspectionIssuePhotoIds(it):[];
+  if(ids.length)data.photos=(data.photos||[]).filter(p=>!ids.includes(p.id));
   ins.issues=ins.issues.filter(x=>x.id!==issueId);save();showInspection(insId);
 }
-async function saveInspectionIssuePhotoFile(insId,issueId,file){
-  if(!file)return;
+async function inspectionIssuePhotoIds(it){
+  let ids=Array.isArray(it.photoIds)?[...it.photoIds]:[];
+  if(it.photoId&&!ids.includes(it.photoId))ids.unshift(it.photoId);
+  return ids;
+}
+async function saveInspectionIssuePhotoFiles(insId,issueId,files){
   let ins=inspectionById(insId),it=ins?.issues?.find(x=>x.id===issueId);if(!it)return;
-  try{
-    const dataUrl=await resizeImage(file,1400,.78);
-    data.photos=data.photos||[];
-    if(it.photoId)data.photos=data.photos.filter(p=>p.id!==it.photoId);
-    let pid=id();
-    data.photos.push({id:pid,inspectionId:insId,inspectionIssueId:issueId,type:'Inspection',dataUrl,createdAt:Date.now()});
-    it.photoId=pid;
-    save();showInspection(insId);
-  }catch(e){alert('Could not add photo.');}
+  files=[...(files||[])].filter(Boolean);if(!files.length)return;
+  data.photos=data.photos||[];
+  it.photoIds=inspectionIssuePhotoIds(it);
+  for(const file of files){
+    try{
+      const dataUrl=await resizeImage(file,1400,.78);
+      let pid=id();
+      data.photos.push({id:pid,inspectionId:insId,inspectionIssueId:issueId,type:'Inspection',dataUrl,name:file.name||'photo.jpg',createdAt:Date.now()});
+      it.photoIds.push(pid);
+    }catch(e){alert('Could not add one of the photos.');}
+  }
+  delete it.photoId;
+  save();showInspection(insId);
 }
 function addInspectionIssueCamera(insId,issueId){
   let input=document.createElement('input');
   input.type='file';input.accept='image/*';input.capture='environment';
-  input.onchange=()=>saveInspectionIssuePhotoFile(insId,issueId,input.files&&input.files[0]);
+  input.onchange=()=>saveInspectionIssuePhotoFiles(insId,issueId,input.files);
   input.click();
 }
 function addInspectionIssueGallery(insId,issueId){
   let input=document.createElement('input');
-  input.type='file';input.accept='image/*';
-  input.onchange=()=>saveInspectionIssuePhotoFile(insId,issueId,input.files&&input.files[0]);
+  input.type='file';input.accept='image/*';input.multiple=true;
+  input.onchange=()=>saveInspectionIssuePhotoFiles(insId,issueId,input.files);
   input.click();
+}
+function deleteInspectionIssuePhoto(insId,issueId,photoId){
+  if(!confirm('Delete this photo?'))return;
+  let ins=inspectionById(insId),it=ins?.issues?.find(x=>x.id===issueId);if(!it)return;
+  it.photoIds=inspectionIssuePhotoIds(it).filter(x=>x!==photoId);
+  if(it.photoId===photoId)delete it.photoId;
+  data.photos=(data.photos||[]).filter(p=>p.id!==photoId);
+  save();showInspection(insId);
 }
 function createTaskFromInspectionIssue(insId,issueId){
   let ins=inspectionById(insId),it=ins?.issues?.find(x=>x.id===issueId);if(!ins||!it)return;
@@ -611,10 +635,10 @@ function showInspection(insId){
   let ins=inspectionById(insId);if(!ins)return;let a=apt(ins.apartmentId);selected=ins.apartmentId;ins.issues=ins.issues||[];
   document.getElementById('pageTitle').textContent='Inspection';
   let issues=ins.issues.length?ins.issues.map(it=>{
-    let photo=(data.photos||[]).find(p=>p.id===it.photoId);
+    let photos=inspectionIssuePhotoIds(it).map(pid=>(data.photos||[]).find(p=>p.id===pid)).filter(Boolean);
     return `<div class="card" style="border-left:5px solid #dc2626">
       <div class="row space"><div><div class="card-title">⚠ ${esc(it.title)}</div>${it.note?`<div class="meta">${esc(it.note)}</div>`:''}</div><button class="small-btn soft" onclick="editInspectionIssue('${ins.id}','${it.id}')">Edit</button></div>
-      ${photo?`<img src="${photo.dataUrl}" onclick="openPhotoViewer('${photo.id}')" style="width:100%;max-height:260px;object-fit:cover;border-radius:14px;margin-top:10px">`:''}
+      ${photos.length?`<div class="inspection-photo-grid">${photos.map(ph=>`<div class="inspection-photo"><img src="${ph.dataUrl}" onclick="openPhotoViewer('${ph.id}')"><button class="inspection-photo-del" onclick="event.stopPropagation();deleteInspectionIssuePhoto('${ins.id}','${it.id}','${ph.id}')">×</button></div>`).join('')}</div>`:''}
       <div class="row" style="flex-wrap:wrap;margin-top:10px">
         <button class="small-btn primary" onclick="addInspectionIssueGallery('${ins.id}','${it.id}')">🖼 Gallery</button>
         <button class="small-btn soft" onclick="addInspectionIssueCamera('${ins.id}','${it.id}')">📷 Camera</button>
@@ -744,7 +768,7 @@ function renderProperties(){
     return true;
   };
 
-  let aps=data.apartments.filter(matchA).sort((a,b)=>(isFavorite(b.id)-isFavorite(a.id))||a.name.localeCompare(b.name));
+  let aps=data.apartments.filter(matchA).sort(smartApartmentSort);
   let filtersActive=!!(q||floor||mode!=='All');
 
   let search=`<div style="position:relative">
@@ -783,9 +807,9 @@ function renderProperties(){
   document.getElementById('view').innerHTML=
     search+filters+actions+
     `<div class="section-head"><h2>Buildings</h2><span class="muted">${data.buildings.length}</span></div>`+
-    (data.buildings.length?data.buildings.map(buildingCard).join(''):'<div class="empty">No buildings yet.</div>')+
+    (data.buildings.length?[...data.buildings].sort(smartBuildingSort).map(buildingCard).join(''):'<div class="empty">No buildings yet.</div>')+
     `<div class="section-head"><h2>Standalone apartments</h2><span class="muted">${sa.length}</span></div>`+
-    (sa.length?sa.map(apartmentCard).join(''):'<div class="empty">No standalone apartments.</div>');
+    (sa.length?sa.sort(smartApartmentSort).map(apartmentCard).join(''):'<div class="empty">No standalone apartments.</div>');
 }
 
 const BUILDING_PHOTOS={"Muses Residence": "https://mygreekvacations.com/images/projects/banners/a046aa4IMG_6462.jpg", "Olympus": "https://mygreekvacations.com/images/projects/banners/eec7d66Olympus%20Residence%20-%20Photo1.jpg", "Olympus Residence": "https://mygreekvacations.com/images/projects/banners/eec7d66Olympus%20Residence%20-%20Photo1.jpg", "Hercules Residence": "https://mygreekvacations.com/images/projects/banners/995d93dHercules_Residence_Photo4.jpg", "The Edge Luxury Residences": "https://www.theedgeluxuryresidences.gr/files/images/gallery/the-edge-luxury-residences-athens-1.jpg", "The Edge": "https://www.theedgeluxuryresidences.gr/files/images/gallery/the-edge-luxury-residences-athens-1.jpg"};
@@ -803,6 +827,37 @@ function buildingInspectionInfo(buildingId){
   const issueCount=active.reduce((n,i)=>n+(i.issues||[]).length,0);
   const aptCount=new Set(active.map(i=>i.apartmentId)).size;
   return {issueCount,aptCount,first:active[0]||null};
+}
+
+
+function recordVisit(kind,id){
+  if(!id)return;
+  data.visitHistory=data.visitHistory||{buildings:{},apartments:{}};
+  data.visitHistory[kind]=data.visitHistory[kind]||{};
+  let arr=data.visitHistory[kind][id]||[];
+  arr.push(Date.now());
+  data.visitHistory[kind][id]=arr.slice(-60);
+  save();
+}
+function visitScore(kind,id){
+  const arr=data.visitHistory?.[kind]?.[id]||[];
+  const now=Date.now(), day=86400000;
+  return arr.reduce((score,ts)=>{
+    const age=Math.max(0,(now-Number(ts||0))/day);
+    return score + Math.exp(-age/14);
+  },0);
+}
+function smartBuildingSort(a,b){
+  const diff=visitScore('buildings',b.id)-visitScore('buildings',a.id);
+  if(Math.abs(diff)>.0001)return diff;
+  return (a.name||'').localeCompare(b.name||'');
+}
+function smartApartmentSort(a,b){
+  const fav=isFavorite(b.id)-isFavorite(a.id);
+  if(fav)return fav;
+  const diff=visitScore('apartments',b.id)-visitScore('apartments',a.id);
+  if(Math.abs(diff)>.0001)return diff;
+  return (a.name||'').localeCompare(b.name||'');
 }
 
 function buildingCard(b){
@@ -960,6 +1015,7 @@ function renderMore(){
     <div class="card"><div class="card-title">Daily Reports</div><p class="muted">Export tasks and inspections for any day as a detailed report with photos.</p><div class="row" style="flex-wrap:wrap"><input id="moreReportDate" type="date" value="${today()}" style="padding:10px;border:1px solid #d8e0ea;border-radius:12px"><button class="btn primary" onclick="showDailyReport(document.getElementById('moreReportDate').value)">Open Daily Report</button></div></div>
     <div class="card"><div class="card-title">Backup & Export</div><p class="muted">Backups include buildings, apartments, tasks, photos, purchases, quotations, favorites and inspections.</p><div class="row" style="flex-wrap:wrap"><button class="btn primary" onclick="downloadSafetyBackup()">Backup JSON</button><label class="btn soft">Restore JSON<input type="file" accept=".json" hidden onchange="importBackup(this.files[0])"></label><button class="btn soft" onclick="exportCsv()">Export CSV</button></div></div>
     <div class="card"><div class="card-title">Update Safety</div><p class="muted">App updates no longer require clearing Chrome data. The service worker checks for a new version and activates it automatically.</p><button class="btn soft" onclick="forceAppUpdate()">Check for app update</button></div>
+    <div class="card"><div class="card-title">Smart Property Order</div><p class="muted">Buildings and apartments you open more often move automatically toward the top. Recent visits count more than older ones. Favorites always stay above other apartments.</p></div>
     <div class="card"><div class="card-title">Favorites</div><p class="muted">${favorites().length} favorite apartments. Use ☆ / ⭐ in Properties.</p></div>
     <div class="card"><div class="card-title">Database</div><p>${data.buildings.length} buildings • ${data.apartments.length} apartments • ${data.tasks.length} tasks • ${(data.inspections||[]).length} inspections • ${data.purchases.length} purchases • ${data.quotations.length} quotations</p></div>`;
   setTimeout(updateSafeStatus,0);
@@ -1096,7 +1152,8 @@ function newTask(apartmentId=''){
 }
 function editTask(i){let t=data.tasks.find(x=>x.id===i);openSheet('Edit Task',taskForm(t),v=>Object.assign(t,v))}
 function showBuilding(i){
-  let b=bld(i), aps=data.apartments.filter(a=>a.buildingId===i);selected=i;document.getElementById('pageTitle').textContent=b.name;
+  recordVisit('buildings',i);
+  let b=bld(i), aps=data.apartments.filter(a=>a.buildingId===i).sort(smartApartmentSort);selected=i;document.getElementById('pageTitle').textContent=b.name;
   document.getElementById('view').innerHTML='<div class="card"><div class="row space"><div><div class="card-title">'+esc(b.name)+'</div><div class="meta">'+esc(b.address||'')+'</div></div><button class="small-btn soft" onclick="editBuilding(\''+i+'\')">Edit</button></div>'+(b.entranceCode?'<div class="detail-grid"><div class="detail-line">Entrance code: <span class="code">'+esc(b.entranceCode)+'</span></div></div>':'')+'</div><div class="section-head"><h2>Apartments</h2><button class="small-btn primary" onclick="newApartment(\''+i+'\')">+ Apartment</button></div>'+(aps.length?aps.map(apartmentCard).join(''):'<div class="empty">No apartments yet.</div>')+'<button class="btn soft" onclick="route=\'properties\';render()">← Back</button>'
 }
 
@@ -1111,6 +1168,7 @@ function maintenanceHistoryHtml(apartmentId){
 }
 
 function showApartment(i){
+  recordVisit('apartments',i);
   let a=apt(i);selected=i;if(!a)return;document.getElementById('pageTitle').textContent=a.name;let probs=recurringProblems(i);
   let health=probs.length?`<div class="card health-card"><div class="card-title">Apartment Health</div><p class="muted">Recurring issues detected:</p>${probs.map(x=>`<div class="detail-line"><b>${esc(x[0])}</b> • ${x[1]} times</div>`).join('')}</div>`:'<div class="card health-card"><div class="card-title">Apartment Health</div><p class="muted">No recurring problems detected yet.</p></div>';
   document.getElementById('view').innerHTML=
@@ -1244,9 +1302,9 @@ function duplicateTask(i){
 function dailyTaskPhotos(taskId){
   return (data.photos||[]).filter(p=>p.taskId===taskId&&p.dataUrl);
 }
-function dailyInspectionPhoto(issue){
-  if(!issue||!issue.photoId)return null;
-  return (data.photos||[]).find(p=>p.id===issue.photoId&&p.dataUrl)||null;
+function dailyInspectionPhotos(issue){
+  if(!issue)return [];
+  return inspectionIssuePhotoIds(issue).map(pid=>(data.photos||[]).find(p=>p.id===pid&&p.dataUrl)).filter(Boolean);
 }
 function dailyLocation(apartmentId){
   const a=apt(apartmentId),b=a?.buildingId?bld(a.buildingId):null;
@@ -1272,11 +1330,11 @@ function dailyInspectionHtml(ins){
     <h3>🔎 Inspection — ${esc(loc.label||'Apartment')}</h3>
     <div class="daily-report-meta">${issues.length} problem(s) • ${esc(ins.status||'Open')}</div>
     ${issues.length?issues.map(it=>{
-      const ph=dailyInspectionPhoto(it);
+      const phs=dailyInspectionPhotos(it);
       return `<div class="daily-report-item daily-report-problem" style="margin:10px 0 0">
         <h3 style="font-size:15px">⚠ ${esc(it.title||'Problem')}</h3>
         ${it.note?`<div>${esc(it.note)}</div>`:''}
-        ${ph?`<div class="daily-report-photos"><div><img src="${ph.dataUrl}"></div></div>`:''}
+        ${phs.length?`<div class="daily-report-photos">${phs.map(ph=>`<div><img src="${ph.dataUrl}"></div>`).join('')}</div>`:''}
       </div>`;
     }).join(''):'<div class="muted" style="margin-top:8px">No problems recorded.</div>'}
   </div>`;
@@ -1450,8 +1508,8 @@ async function buildDailyReportPdf(date){
       ctx.fillStyle='#b91c1c';ctx.font='700 26px Arial, sans-serif';
       pg.y=pdfDrawWrapped(ctx,'⚠ '+(issue.title||'Problem'),M+18,pg.y,W-M*2-36,34)+4;
       if(issue.note){ctx.fillStyle='#0f172a';ctx.font='23px Arial, sans-serif';pg.y=pdfDrawWrapped(ctx,issue.note,M+18,pg.y,W-M*2-36,31)+8}
-      const ph=dailyInspectionPhoto(issue);
-      if(ph)await drawPhoto(ph.dataUrl);
+      const phs=dailyInspectionPhotos(issue);
+      for(const ph of phs)await drawPhoto(ph.dataUrl);
       pg.y+=14;
     }
   }
