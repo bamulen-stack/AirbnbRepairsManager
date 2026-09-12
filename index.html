@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.27 Banner Fit</title>
+<title>Airbnb Repairs Manager v9.28 Professional Daily Report</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -494,6 +494,40 @@ body.home-route .app-header{
   background-position:center center!important;
   background-size:contain!important;
   min-height:185px!important;
+}
+</style>
+
+<style id="v928-report-style">
+.report-pro{display:none}
+@media print{
+  @page{size:A4;margin:11mm 10mm 13mm}
+  body *{visibility:hidden!important}
+  .report-pro,.report-pro *{visibility:visible!important}
+  .report-pro{display:block!important;position:absolute;left:0;top:0;width:100%;background:#fff;color:#10233d;font-family:Arial,sans-serif}
+  .rp-cover{page-break-after:always}
+  .rp-banner{width:100%;height:72mm;object-fit:cover;display:block}
+  .rp-body{padding:8mm 7mm 0}
+  .rp-title{font-size:25pt;font-weight:900;color:#0b315b;margin:0 0 5mm}
+  .rp-meta{display:flex;justify-content:space-between;gap:8mm;border-bottom:2px solid #1769aa;padding-bottom:5mm;margin-bottom:5mm}
+  .rp-meta-main{font-size:11pt;line-height:1.7}.rp-id{font-size:8.5pt;background:#eef6fc;padding:4mm;border-radius:3mm}
+  .rp-h{font-size:12pt;font-weight:900;color:#0b315b;margin:5mm 0 3mm}
+  .rp-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:3mm}
+  .rp-stat{padding:4mm 2mm;text-align:center;border-radius:3mm;background:#eef6fc}.rp-stat b{display:block;font-size:20pt}.rp-stat span{font-size:8pt}
+  .rp-stat.green{background:#e9f8ef;color:#126b3a}.rp-stat.orange{background:#fff4dd;color:#9a6100}.rp-stat.red{background:#fdebec;color:#a9232b}.rp-stat.blue{background:#e8f4ff;color:#1267a7}
+  .rp-inspection-count{margin-top:4mm;padding:4mm;background:#e9f5ff;border-left:4px solid #1684d9;border-radius:2mm;font-size:10pt;font-weight:700}
+  .rp-quote{margin-top:8mm;background:#eef6fc;border-radius:3mm;padding:5mm;font-size:9pt}
+  .rp-footer{margin-top:8mm;background:#0b315b;color:#fff;padding:4mm 6mm;font-size:8pt;display:flex;justify-content:space-between}
+  .rp-page{page-break-before:always;padding-top:2mm}
+  .rp-page-head{display:flex;justify-content:space-between;align-items:end;border-bottom:2px solid #1769aa;padding-bottom:3mm;margin-bottom:4mm}
+  .rp-logo{font-size:20pt;font-weight:900;color:#0b5b9b}.rp-page-title{font-size:10pt;font-weight:900}
+  .rp-item{border:1px solid #ccd9e5;border-radius:3mm;padding:4mm;margin-bottom:4mm;break-inside:avoid}
+  .rp-item-head{display:flex;justify-content:space-between;gap:5mm}.rp-item-title{font-size:11pt;font-weight:900}.rp-badge{display:inline-block;padding:1.5mm 3mm;border-radius:10mm;font-size:8pt;font-weight:900;background:#e8f4ff;color:#1267a7}
+  .rp-badge.done{background:#e4f7eb;color:#18713f}.rp-badge.urgent{background:#fde7e9;color:#b3212b}.rp-badge.open{background:#fff1d4;color:#956000}
+  .rp-line{font-size:9pt;line-height:1.45;margin-top:1.5mm}.rp-label{font-weight:800;color:#34536f}
+  .rp-photos{display:flex;gap:3mm;margin-top:3mm;flex-wrap:wrap}.rp-photos img{width:46mm;height:34mm;object-fit:cover;border-radius:2mm;border:1px solid #d5dee7}
+  .rp-inspection{border-left:4px solid #1684d9}
+  .rp-inspection .rp-item-title:before{content:"🔎 INSPECTION · "}
+  .no-print{display:none!important}
 }
 </style>
 </head>
@@ -2177,6 +2211,83 @@ async function saveDailyReportPdf(date){
   }
 }
 
+
+function buildProfessionalDailyPrint(date){
+  const tasks=(data.tasks||[]).filter(x=>x.date===date);
+  const inspections=(data.inspections||[]).filter(x=>x.date===date);
+  const completed=tasks.filter(x=>x.status==='Completed').length;
+  const urgent=tasks.filter(x=>x.priority==='Urgent').length;
+  const open=tasks.length-completed;
+  const inprogress=tasks.filter(x=>x.status==='In Progress').length;
+  const rid='DR-'+String(date||'').replaceAll('-','');
+  const photoHTML=(ids)=>{
+    const arr=Array.isArray(ids)?ids:(ids?[ids]:[]);
+    return arr.slice(0,4).map(id=>{
+      const ph=(data.photos||[]).find(p=>p.id===id);
+      return ph&&ph.data?`<img src="${ph.data}">`:'';
+    }).join('');
+  };
+  const taskCards=tasks.map((x,i)=>{
+    const a=apt(x.apartmentId), b=a&&a.buildingId?(data.buildings||[]).find(z=>z.id===a.buildingId):null;
+    const cls=x.status==='Completed'?'done':x.priority==='Urgent'?'urgent':'open';
+    const ids=[...(x.beforePhotoIds||[]),...(x.afterPhotoIds||[])];
+    return `<div class="rp-item">
+      <div class="rp-item-head"><div class="rp-item-title">${i+1}. ${esc(x.title||'Maintenance task')}</div><span class="rp-badge ${cls}">${esc(x.priority==='Urgent'?'Urgent':(x.status||'Open'))}</span></div>
+      <div class="rp-line"><span class="rp-label">Property:</span> ${esc(b?.name||'')} ${b&&a?'—':''} ${esc(a?.name||'')}</div>
+      ${x.area?`<div class="rp-line"><span class="rp-label">Area:</span> ${esc(x.area)}</div>`:''}
+      ${x.description?`<div class="rp-line"><span class="rp-label">Work:</span> ${esc(x.description)}</div>`:''}
+      ${x.notes?`<div class="rp-line"><span class="rp-label">Notes:</span> ${esc(x.notes)}</div>`:''}
+      ${ids.length?`<div class="rp-photos">${photoHTML(ids)}</div>`:''}
+    </div>`;
+  }).join('');
+  const inspectionCards=inspections.map((ins,i)=>{
+    const a=apt(ins.apartmentId), b=a&&a.buildingId?(data.buildings||[]).find(z=>z.id===a.buildingId):null;
+    const issues=ins.issues||ins.problems||[];
+    let details='';
+    if(Array.isArray(issues)&&issues.length){
+      details=issues.map((q,n)=>`<div class="rp-line"><span class="rp-label">${n+1}. ${esc(q.area||q.room||'Area')}:</span> ${esc(q.problem||q.title||'')} ${q.solution?`<br><span class="rp-label">Proposed solution:</span> ${esc(q.solution)}`:''}${(q.photoIds||[]).length?`<div class="rp-photos">${photoHTML(q.photoIds)}</div>`:''}</div>`).join('');
+    }else{
+      details=`${ins.area?`<div class="rp-line"><span class="rp-label">Area:</span> ${esc(ins.area)}</div>`:''}${ins.problem?`<div class="rp-line"><span class="rp-label">Problem:</span> ${esc(ins.problem)}</div>`:''}${ins.solution?`<div class="rp-line"><span class="rp-label">Proposed solution:</span> ${esc(ins.solution)}</div>`:''}`;
+    }
+    return `<div class="rp-item rp-inspection">
+      <div class="rp-item-head"><div class="rp-item-title">${esc(b?.name||'')} ${b&&a?'—':''} ${esc(a?.name||'Apartment')}</div><span class="rp-badge open">${issues.length||ins.problemCount||0} finding(s)</span></div>
+      ${details}
+    </div>`;
+  }).join('');
+  let root=document.getElementById('professionalDailyPrint');
+  if(root)root.remove();
+  root=document.createElement('div'); root.id='professionalDailyPrint'; root.className='report-pro';
+  root.innerHTML=`<section class="rp-cover">
+    <img class="rp-banner" src="${dashboardCover()}">
+    <div class="rp-body">
+      <h1 class="rp-title">DAILY MAINTENANCE REPORT</h1>
+      <div class="rp-meta"><div class="rp-meta-main">📅 <b>${fmt(date)}</b><br>📍 All Properties</div><div class="rp-id">Report ID: ${rid}<br>Prepared by: MGV Team<br>Property Maintenance System</div></div>
+      <div class="rp-h">DAILY SUMMARY</div>
+      <div class="rp-summary">
+        <div class="rp-stat blue"><b>${tasks.length}</b><span>Total Tasks</span></div>
+        <div class="rp-stat green"><b>${completed}</b><span>Completed</span></div>
+        <div class="rp-stat blue"><b>${inprogress}</b><span>In Progress</span></div>
+        <div class="rp-stat orange"><b>${open}</b><span>Open / Pending</span></div>
+        <div class="rp-stat red"><b>${urgent}</b><span>Urgent</span></div>
+      </div>
+      <div class="rp-inspection-count">🔎 ${inspections.length} Inspection${inspections.length===1?'':'s'} recorded on this date</div>
+      <div class="rp-quote">“Well-maintained properties create great guest experiences.”<br><b>Maintain today. Higher guest satisfaction tomorrow.</b></div>
+      <div class="rp-footer"><span>MGV · MYGREEKVACATIONS</span><span>PROPERTY CARE · GUEST SATISFACTION · ALWAYS READY</span></div>
+    </div>
+  </section>
+  <section class="rp-page">
+    <div class="rp-page-head"><div class="rp-logo">MGV <small style="font-size:7pt">MYGREEKVACATIONS</small></div><div class="rp-page-title">DAILY MAINTENANCE REPORT · ${fmt(date)}</div></div>
+    ${taskCards||'<div class="rp-item">No maintenance tasks recorded.</div>'}
+    ${inspectionCards?`<div class="rp-h">INSPECTIONS</div>${inspectionCards}`:''}
+    <div class="rp-footer"><span>MGV · PROPERTY MAINTENANCE SYSTEM</span><span>${fmt(date)}</span></div>
+  </section>`;
+  document.body.appendChild(root);
+}
+function printProfessionalDailyReport(date){
+  buildProfessionalDailyPrint(date);
+  setTimeout(()=>window.print(),250);
+}
+
 function showDailyReport(date=today()){
   const tasks=(data.tasks||[]).filter(t=>t.date===date);
   const inspections=(data.inspections||[]).filter(i=>i.date===date);
@@ -2226,7 +2337,7 @@ function showDailyReport(date=today()){
     showDailyReport(v);
   });
   if(saveBtn) saveBtn.addEventListener('click',()=>saveDailyReportPdf(date));
-  if(printBtn) printBtn.addEventListener('click',()=>window.print());
+  if(printBtn) printBtn.addEventListener('click',()=>printProfessionalDailyReport(date));
   if(shareBtn) shareBtn.addEventListener('click',()=>shareDailyReport(date));
   if(backBtn) backBtn.addEventListener('click',()=>{route='home';render();});
 }
