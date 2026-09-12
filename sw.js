@@ -1,4 +1,4 @@
-const CACHE='airbnb-repairs-v9-28-professional-daily-report';
+const CACHE='airbnb-repairs-v9-29-professional-pdf-save';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./dashboard-cover.png'];
 
 self.addEventListener('install',event=>{
