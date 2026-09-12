@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.23 CEO Dashboard</title>
+<title>Airbnb Repairs Manager v9.24 Custom Dashboard Cover</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -447,6 +447,20 @@ linear-gradient(135deg,#0b4d83,#07192c)}
 .ceo-bottom-panels{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}.ceo-panel{border:1px solid #214866;border-radius:17px;padding:12px;background:linear-gradient(145deg,#0f2d49,#0a2239)}.ceo-panel h4{margin:0 0 9px;color:#fff;font-size:13px}.ceo-panel-line{padding:7px 0;border-bottom:1px solid #183b58;font-size:10px;color:#c5d5e4}.ceo-panel-line:last-child{border-bottom:0}.ceo-panel.urgent{border-color:#713043;background:linear-gradient(145deg,#321c29,#171d2a)}
 @media(max-width:380px){.ceo-grid{gap:6px}.ceo-kpi{padding:10px 7px}.ceo-kpi b{font-size:22px}.ceo-today{grid-template-columns:1fr}.ceo-quick{min-height:48px;justify-content:center}}
 </style>
+
+<style>
+body.home-route .app-header .icon-btn{display:none!important}
+.ceo-hero{
+  background:
+    linear-gradient(90deg,rgba(3,20,37,.24),rgba(3,20,37,.08)),
+    var(--dashboard-cover, url('dashboard-cover.png')) center/cover no-repeat!important;
+  min-height:220px!important;
+}
+.ceo-hero .ceo-kicker,.ceo-hero .ceo-title,.ceo-hero .ceo-slogan{display:none!important}
+.ceo-hero-content{padding-top:115px!important}
+.cover-preview{width:100%;height:120px;object-fit:cover;border-radius:16px;border:1px solid #28506d;margin:10px 0}
+.cover-actions{display:flex;gap:8px;flex-wrap:wrap}
+</style>
 </head>
 <body>
 <header class="app-header">
@@ -881,7 +895,58 @@ function taskCard(t){
     <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">${statusOnlyBadge(t)}${priorityBadge(t)}</div>
   </div>`
 }
+
+const DASH_COVER_KEY='mgv_dashboard_cover_v1';
+function dashboardCover(){
+  try{return localStorage.getItem(DASH_COVER_KEY)||'dashboard-cover.png'}catch(e){return 'dashboard-cover.png'}
+}
+function applyDashboardCover(){
+  const v=dashboardCover();
+  document.documentElement.style.setProperty('--dashboard-cover', v.startsWith('data:')?`url("${v}")`:`url("${v}")`);
+}
+function chooseDashboardCover(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='image/*';
+  inp.onchange=()=>{
+    const f=inp.files&&inp.files[0]; if(!f)return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const c=document.createElement('canvas'), max=1600;
+        let w=img.width,h=img.height,scale=Math.min(1,max/w);
+        w=Math.round(w*scale);h=Math.round(h*scale);
+        c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        const val=c.toDataURL('image/jpeg',.84);
+        try{localStorage.setItem(DASH_COVER_KEY,val);applyDashboardCover();showDashboardCoverSettings()}catch(e){alert('Could not save cover photo.')}
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(f);
+  };
+  inp.click();
+}
+function resetDashboardCover(){
+  try{localStorage.removeItem(DASH_COVER_KEY)}catch(e){}
+  applyDashboardCover(); showDashboardCoverSettings();
+}
+function showDashboardCoverSettings(){
+  document.getElementById('pageTitle').textContent='Dashboard Cover';
+  document.getElementById('view').innerHTML=`<div class="card">
+    <div class="card-title">Dashboard Cover</div>
+    <div class="meta">Choose the image shown at the top of the Dashboard. It is stored on this device and works offline.</div>
+    <img class="cover-preview" src="${dashboardCover()}">
+    <div class="cover-actions">
+      <button class="btn primary" onclick="chooseDashboardCover()">🖼️ Choose from Gallery</button>
+      <button class="btn soft" onclick="resetDashboardCover()">Reset MGV Cover</button>
+    </div>
+  </div><button class="btn soft" onclick="route='more';render()">← Back</button>`;
+}
+applyDashboardCover();
+
 function render(){
+  document.body.classList.toggle('home-route',route==='home');
   
 async function forceAppUpdate(){
   if(!('serviceWorker' in navigator)){alert('Service worker unavailable.');return}
@@ -1519,7 +1584,7 @@ function renderMore(){
     <div class="card"><div class="card-title">Maintenance Automation</div><p class="muted">Recurring maintenance creates the next task automatically after completion. Before/After comparison is available from each task. Daily Route groups today’s visits by property and puts urgent work first.</p><button class="btn soft" onclick="showDailyRoute(today())">🧭 Open Daily Route</button></div>
     <div class="card"><div class="card-title">Client-Ready Reports</div><p class="muted">From any task, open Client Report to create a branded MGV service report with work details, inspections, photos and signature lines.</p></div>
     <div class="card"><div class="card-title">Daily Reports</div><p class="muted">Export tasks and inspections for any day as a detailed report with photos.</p><div class="row" style="flex-wrap:wrap"><input id="moreReportDate" type="date" value="${today()}" style="padding:10px;border:1px solid #d8e0ea;border-radius:12px"><button class="btn primary" onclick="showDailyReport(document.getElementById('moreReportDate').value)">Open Daily Report</button></div></div>
-    <div class="card"><div class="card-title">Backup & Export</div><p class="muted">Backups include buildings, apartments, tasks, photos, purchases, quotations, favorites and inspections.</p><div class="row" style="flex-wrap:wrap"><button class="btn primary" onclick="downloadSafetyBackup()">Backup JSON</button><label class="btn soft">Restore JSON<input type="file" accept=".json" hidden onchange="importBackup(this.files[0])"></label><button class="btn soft" onclick="exportCsv()">Export CSV</button></div></div>
+    <div class="card"><div class="card-title">Dashboard Cover</h2><button class="btn soft" onclick="showDashboardCoverSettings()">🖼️ Change Dashboard Cover</button><h2>Backup & Export</div><p class="muted">Backups include buildings, apartments, tasks, photos, purchases, quotations, favorites and inspections.</p><div class="row" style="flex-wrap:wrap"><button class="btn primary" onclick="downloadSafetyBackup()">Backup JSON</button><label class="btn soft">Restore JSON<input type="file" accept=".json" hidden onchange="importBackup(this.files[0])"></label><button class="btn soft" onclick="exportCsv()">Export CSV</button></div></div>
     <div class="card"><div class="card-title">Update Safety</div><p class="muted">App updates no longer require clearing Chrome data. The service worker checks for a new version and activates it automatically.</p><button class="btn soft" onclick="forceAppUpdate()">Check for app update</button></div>
     <div class="card"><div class="card-title">Smart Property Order</div><p class="muted">Buildings and apartments keep their existing order until you start using them. Frequently and recently visited items then move gradually toward the top. Favorites always stay above other apartments.</p></div>
     <div class="card"><div class="card-title">Favorites</div><p class="muted">${favorites().length} favorite apartments. Use ☆ / ⭐ in Properties.</p></div>

@@ -1,5 +1,5 @@
-const CACHE='airbnb-repairs-v9-23-ceo-dashboard';
-const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
+const CACHE='airbnb-repairs-v9-24-custom-dashboard-cover';
+const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./dashboard-cover.png'];
 
 self.addEventListener('install',event=>{
   self.skipWaiting();
