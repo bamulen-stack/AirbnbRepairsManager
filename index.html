@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.30 Direct PDF Share</title>
+<title>Airbnb Repairs Manager v9.31 MGV Professional PDF</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -2060,133 +2060,230 @@ async function buildDailyReportPdf(date){
   const tasks=(data.tasks||[]).filter(t=>t.date===date);
   const inspections=(data.inspections||[]).filter(i=>i.date===date);
   const completed=tasks.filter(t=>t.status==='Completed').length;
+  const inprogress=tasks.filter(t=>t.status==='In Progress').length;
   const open=tasks.filter(t=>t.status!=='Completed').length;
   const urgent=tasks.filter(t=>t.priority==='Urgent').length;
   const issues=inspections.reduce((n,i)=>n+(i.issues||[]).length,0);
+  const rid='DR-'+String(date||'').replaceAll('-','');
 
-  const W=1240,H=1754,M=75;
+  const W=1240,H=1754,M=58;
   const pages=[];
+
   function newPage(){
     const c=document.createElement('canvas');c.width=W;c.height=H;
     const ctx=c.getContext('2d');
     ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
-    ctx.textBaseline='top';ctx.fillStyle='#0f172a';
+    ctx.textBaseline='top';
     return {c,ctx,y:M};
   }
-  let pg=newPage();
-
-  function header(title,subtitle){
-    const {ctx}=pg;
-    ctx.fillStyle='#0b63ce';ctx.fillRect(0,0,W,150);
-    ctx.fillStyle='#fff';ctx.font='700 42px Arial, sans-serif';ctx.fillText(title,M,35);
-    ctx.font='24px Arial, sans-serif';ctx.fillText(subtitle,M,92);
-    pg.y=190;
+  function roundRect(ctx,x,y,w,h,r,fill,stroke){
+    ctx.beginPath();ctx.roundRect(x,y,w,h,r);
+    if(fill){ctx.fillStyle=fill;ctx.fill()}
+    if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()}
   }
-  function ensure(space){
-    if(pg.y+space>H-M){
-      pages.push(pg.c);pg=newPage();header('Airbnb Maintenance — Daily Report',fmt(date));
+  async function img(src){
+    return await pdfLoadImage(src);
+  }
+  function fitImage(ctx,image,x,y,w,h,mode='cover'){
+    if(!image)return;
+    const ir=image.width/image.height, rr=w/h;
+    let dw,dh,dx,dy;
+    if(mode==='contain'){
+      if(ir>rr){dw=w;dh=w/ir;dx=x;dy=y+(h-dh)/2}
+      else{dh=h;dw=h*ir;dy=y;dx=x+(w-dw)/2}
+    }else{
+      if(ir>rr){dh=h;dw=h*ir;dy=y;dx=x-(dw-w)/2}
+      else{dw=w;dh=w/ir;dx=x;dy=y-(dh-h)/2}
     }
+    ctx.drawImage(image,dx,dy,dw,dh);
   }
-  function drawSectionTitle(text){
-    ensure(70);
-    pg.ctx.fillStyle='#0f172a';pg.ctx.font='700 34px Arial, sans-serif';
-    pg.ctx.fillText(text,M,pg.y);pg.y+=55;
+  function wrap(ctx,text,maxWidth){
+    const words=String(text||'').split(/\s+/),out=[];let line='';
+    for(const word of words){
+      const test=line?line+' '+word:word;
+      if(line && ctx.measureText(test).width>maxWidth){out.push(line);line=word}else line=test;
+    }
+    if(line)out.push(line);
+    return out.length?out:[''];
   }
-  function drawText(label,value){
-    if(value===undefined||value===null||value==='')return;
-    const ctx=pg.ctx;ctx.font='700 24px Arial, sans-serif';ctx.fillStyle='#334155';
-    const labelW=ctx.measureText(label+': ').width;
-    ctx.fillText(label+': ',M,pg.y);
-    ctx.font='24px Arial, sans-serif';ctx.fillStyle='#0f172a';
-    pg.y=pdfDrawWrapped(ctx,String(value),M+labelW,pg.y,W-M*2-labelW,32)+8;
+  function wrapped(ctx,text,x,y,maxWidth,lineHeight){
+    const lines=wrap(ctx,text,maxWidth);
+    lines.forEach((l,i)=>ctx.fillText(l,x,y+i*lineHeight));
+    return y+lines.length*lineHeight;
   }
-  function drawPill(text,bg,fg,x,y){
-    const ctx=pg.ctx;ctx.font='700 21px Arial, sans-serif';
-    const w=ctx.measureText(text).width+36;
-    ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect(x,y,w,42,21);ctx.fill();
-    ctx.fillStyle=fg;ctx.fillText(text,x+18,y+9);
+  function pageHeader(pg){
+    const {ctx}=pg;
+    ctx.fillStyle='#0b315b';ctx.fillRect(0,0,W,72);
+    ctx.fillStyle='#fff';ctx.font='900 28px Arial';ctx.fillText('MGV',M,17);
+    ctx.font='700 12px Arial';ctx.fillText('MYGREEKVACATIONS',M+72,29);
+    ctx.textAlign='right';ctx.font='700 16px Arial';ctx.fillText('DAILY MAINTENANCE REPORT · '+fmt(date),W-M,27);ctx.textAlign='left';
+    pg.y=98;
+  }
+  function ensure(pg,space){
+    if(pg.y+space>H-90){
+      pages.push(pg.c);
+      pg=newPage();pageHeader(pg);
+    }
+    return pg;
+  }
+  function pill(ctx,text,x,y,bg,fg){
+    ctx.font='700 18px Arial';
+    const w=ctx.measureText(text).width+30;
+    roundRect(ctx,x,y,w,34,17,bg,null);
+    ctx.fillStyle=fg;ctx.fillText(text,x+15,y+7);
     return w;
   }
-  async function drawPhoto(src){
-    const img=await pdfLoadImage(src);if(!img)return;
-    const maxW=W-M*2, maxH=520;
-    const scale=Math.min(maxW/img.width,maxH/img.height,1.6);
-    const dw=img.width*scale,dh=img.height*scale;
-    ensure(dh+30);
-    pg.ctx.drawImage(img,M,pg.y,dw,dh);pg.y+=dh+25;
-  }
-  async function drawTask(t,index){
-    ensure(220);
-    const loc=dailyLocation(t.apartmentId),ctx=pg.ctx;
-    ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.roundRect(M-18,pg.y-12,W-M*2+36,150,18);ctx.fill();
-    ctx.fillStyle='#0f172a';ctx.font='700 30px Arial, sans-serif';
-    pg.y=pdfDrawWrapped(ctx,(index+1)+'. '+(t.title||'Task'),M,pg.y,W-M*2,38)+6;
-    ctx.font='22px Arial, sans-serif';ctx.fillStyle='#64748b';
-    pg.y=pdfDrawWrapped(ctx,loc.label+(loc.a?.floor?' • Floor '+loc.a.floor:'')+(t.category?' • '+t.category:''),M,pg.y,W-M*2,30)+10;
-    let x=M;
-    const status=t.status||'Pending';
-    x+=drawPill(status,status==='Completed'?'#dcfce7':status==='In Progress'?'#dff0ff':'#fff4d6',status==='Completed'?'#166534':status==='In Progress'?'#075c9e':'#805d00',x,pg.y)+10;
-    const pr=t.priority||'Normal';
-    drawPill(pr,pr==='Urgent'?'#fee2e2':pr==='High'?'#ffedd5':'#dbeafe',pr==='Urgent'?'#b91c1c':pr==='High'?'#c2410c':'#1d4ed8',x,pg.y);
-    pg.y+=58;
-    drawText('Description',t.description);drawText('Notes',t.notes);drawText('Materials',t.materials);
-    if(t.cost)drawText('Cost','€'+t.cost);
-    if(t.assignedTo)drawText('Assigned to',t.assignedTo);
-    const ps=dailyTaskPhotos(t.id);
-    for(const ph of ps)await drawPhoto(ph.dataUrl);
-    pg.y+=20;
-  }
-  async function drawInspection(ins,index){
-    ensure(180);
-    const loc=dailyLocation(ins.apartmentId),ctx=pg.ctx;
-    ctx.fillStyle='#eef5ff';ctx.beginPath();ctx.roundRect(M-18,pg.y-12,W-M*2+36,120,18);ctx.fill();
-    ctx.fillStyle='#0f172a';ctx.font='700 30px Arial, sans-serif';
-    pg.y=pdfDrawWrapped(ctx,`Inspection ${index+1} — ${loc.label||'Apartment'}`,M,pg.y,W-M*2,38)+6;
-    ctx.font='22px Arial, sans-serif';ctx.fillStyle='#64748b';
-    ctx.fillText(`${(ins.issues||[]).length} problem(s) • ${ins.status||'Open'}`,M,pg.y);pg.y+=45;
-    for(const issue of (ins.issues||[])){
-      ensure(170);
-      ctx.fillStyle='#fff1f2';ctx.beginPath();ctx.roundRect(M,pg.y-8,W-M*2,110,14);ctx.fill();
-      ctx.fillStyle='#b91c1c';ctx.font='700 26px Arial, sans-serif';
-      pg.y=pdfDrawWrapped(ctx,'⚠ '+(issue.title||'Problem'),M+18,pg.y,W-M*2-36,34)+4;
-      if(issue.note){ctx.fillStyle='#0f172a';ctx.font='23px Arial, sans-serif';pg.y=pdfDrawWrapped(ctx,issue.note,M+18,pg.y,W-M*2-36,31)+8}
-      const phs=dailyInspectionPhotos(issue);
-      for(const ph of phs)await drawPhoto(ph.dataUrl);
-      pg.y+=14;
-    }
-  }
 
-  header('Airbnb Maintenance — Daily Report',fmt(date));
-  pg.ctx.fillStyle='#0f172a';pg.ctx.font='700 30px Arial, sans-serif';
-  pg.ctx.fillText('Summary',M,pg.y);pg.y+=52;
-  const summary=[
-    ['Tasks',tasks.length],['Completed',completed],['Open',open],
-    ['Urgent',urgent],['Inspections',inspections.length],['Problems found',issues]
+  // ---------- COVER PAGE ----------
+  let pg=newPage(),ctx=pg.ctx;
+  const cover=await img(dashboardCover());
+  fitImage(ctx,cover,0,0,W,520,'cover');
+
+  ctx.fillStyle='rgba(3,30,54,.82)';ctx.fillRect(0,420,W,100);
+  ctx.fillStyle='#fff';ctx.font='900 22px Arial';ctx.fillText('MGV · MYGREEKVACATIONS',M,448);
+  ctx.font='700 14px Arial';ctx.fillText('PROPERTY MAINTENANCE SYSTEM',M,481);
+
+  pg.y=570;
+  ctx.fillStyle='#0b315b';ctx.font='900 52px Arial';ctx.fillText('DAILY MAINTENANCE REPORT',M,pg.y);pg.y+=78;
+
+  ctx.fillStyle='#10233d';ctx.font='700 25px Arial';ctx.fillText('📅 '+fmt(date),M,pg.y);pg.y+=44;
+  ctx.font='22px Arial';ctx.fillText('📍 All Properties',M,pg.y);
+
+  roundRect(ctx,W-410,560,350,120,18,'#eef6fc',null);
+  ctx.fillStyle='#45627b';ctx.font='18px Arial';
+  ctx.fillText('Report ID: '+rid,W-385,585);
+  ctx.fillText('Prepared by: MGV Team',W-385,615);
+  ctx.fillText('Property Maintenance System',W-385,645);
+
+  pg.y=735;
+  ctx.fillStyle='#0b315b';ctx.font='900 24px Arial';ctx.fillText('DAILY SUMMARY',M,pg.y);pg.y+=46;
+
+  const stats=[
+    ['Total Tasks',tasks.length,'#e8f4ff','#1267a7'],
+    ['Completed',completed,'#e9f8ef','#126b3a'],
+    ['In Progress',inprogress,'#e8f4ff','#1267a7'],
+    ['Open / Pending',open,'#fff4dd','#9a6100'],
+    ['Urgent',urgent,'#fdebec','#a9232b'],
   ];
-  const boxW=(W-M*2-30)/3,boxH=115;
-  summary.forEach((s,i)=>{
-    const col=i%3,row=Math.floor(i/3),x=M+col*(boxW+15),y=pg.y+row*(boxH+15);
-    pg.ctx.fillStyle='#f8fbff';pg.ctx.strokeStyle='#cbd5e1';pg.ctx.lineWidth=2;
-    pg.ctx.beginPath();pg.ctx.roundRect(x,y,boxW,boxH,18);pg.ctx.fill();pg.ctx.stroke();
-    pg.ctx.fillStyle='#0b63ce';pg.ctx.font='700 34px Arial, sans-serif';pg.ctx.fillText(String(s[1]),x+18,y+18);
-    pg.ctx.fillStyle='#64748b';pg.ctx.font='20px Arial, sans-serif';pg.ctx.fillText(s[0],x+18,y+64);
+  const gap=12, boxW=(W-M*2-gap*4)/5, boxH=142;
+  stats.forEach((s,i)=>{
+    const x=M+i*(boxW+gap);
+    roundRect(ctx,x,pg.y,boxW,boxH,18,s[2],null);
+    ctx.fillStyle=s[3];ctx.textAlign='center';ctx.font='900 40px Arial';ctx.fillText(String(s[1]),x+boxW/2,pg.y+24);
+    ctx.font='700 15px Arial';wrapped(ctx,s[0],x+10,pg.y+84,boxW-20,18);ctx.textAlign='left';
   });
-  pg.y+=2*(boxH+15)+25;
+  pg.y+=boxH+30;
 
-  drawSectionTitle('Works');
-  if(!tasks.length){pg.ctx.font='24px Arial, sans-serif';pg.ctx.fillStyle='#64748b';pg.ctx.fillText('No tasks recorded for this date.',M,pg.y);pg.y+=50}
-  for(let i=0;i<tasks.length;i++)await drawTask(tasks[i],i);
+  roundRect(ctx,M,pg.y,W-M*2,70,12,'#e9f5ff',null);
+  ctx.fillStyle='#1267a7';ctx.font='800 20px Arial';
+  ctx.fillText(`🔎 ${inspections.length} Inspection${inspections.length===1?'':'s'} · ${issues} finding${issues===1?'':'s'}`,M+18,pg.y+22);
+  pg.y+=105;
 
-  drawSectionTitle('Inspections');
-  if(!inspections.length){pg.ctx.font='24px Arial, sans-serif';pg.ctx.fillStyle='#64748b';pg.ctx.fillText('No inspections recorded for this date.',M,pg.y);pg.y+=50}
-  for(let i=0;i<inspections.length;i++)await drawInspection(inspections[i],i);
+  roundRect(ctx,M,pg.y,W-M*2,105,14,'#eef6fc',null);
+  ctx.fillStyle='#45627b';ctx.font='italic 18px Arial';ctx.fillText('“Well-maintained properties create great guest experiences.”',M+20,pg.y+24);
+  ctx.font='700 18px Arial';ctx.fillText('Maintain today. Higher guest satisfaction tomorrow.',M+20,pg.y+55);
+
+  ctx.fillStyle='#0b315b';ctx.fillRect(0,H-70,W,70);
+  ctx.fillStyle='#fff';ctx.font='700 14px Arial';ctx.fillText('MGV · MYGREEKVACATIONS',M,H-44);
+  ctx.textAlign='right';ctx.fillText('PROPERTY CARE · GUEST SATISFACTION · ALWAYS READY',W-M,H-44);ctx.textAlign='left';
 
   pages.push(pg.c);
 
+  // ---------- DETAILS PAGES ----------
+  pg=newPage();pageHeader(pg);
+
+  async function taskCard(t,index){
+    pg=ensure(pg,230);
+    const {ctx}=pg;
+    const loc=dailyLocation(t.apartmentId);
+    roundRect(ctx,M,pg.y,W-M*2,150,18,'#fbfdff','#d7e1ea');
+    ctx.fillStyle='#0b315b';ctx.font='900 23px Arial';
+    pg.y=wrapped(ctx,`${index+1}. ${t.title||'Maintenance task'}`,M+18,pg.y+18,W-M*2-260,29);
+    const sy=pg.y-27;
+    let cls=t.status==='Completed'?['Completed','#e4f7eb','#18713f']:
+            t.priority==='Urgent'?['Urgent','#fde7e9','#b3212b']:
+            [t.status||'Open','#fff1d4','#956000'];
+    pill(ctx,cls[0],W-M-155,sy,cls[1],cls[2]);
+
+    ctx.fillStyle='#587087';ctx.font='17px Arial';
+    const meta=[loc.b?.name,loc.a?.name,loc.a?.floor?'Floor '+loc.a.floor:null,t.category].filter(Boolean).join(' · ');
+    pg.y=wrapped(ctx,meta,M+18,pg.y+6,W-M*2-36,22)+4;
+    if(t.description){ctx.fillStyle='#10233d';ctx.font='17px Arial';pg.y=wrapped(ctx,'Work: '+t.description,M+18,pg.y,W-M*2-36,22)+3}
+    if(t.notes){ctx.fillStyle='#10233d';ctx.font='17px Arial';pg.y=wrapped(ctx,'Notes: '+t.notes,M+18,pg.y,W-M*2-36,22)+3}
+
+    const ps=dailyTaskPhotos(t.id).slice(0,4);
+    if(ps.length){
+      pg.y+=10;
+      let x=M+18;
+      for(const ph of ps){
+        const im=await img(ph.dataUrl); if(!im)continue;
+        pg=ensure(pg,165);
+        fitImage(pg.ctx,im,x,pg.y,235,150,'cover');
+        x+=247;
+        if(x+235>W-M){x=M+18;pg.y+=162}
+      }
+      if(x!==M+18)pg.y+=162;
+    }
+    pg.y+=18;
+  }
+
+  async function inspectionCard(ins,index){
+    const loc=dailyLocation(ins.apartmentId);
+    const issuesArr=ins.issues||[];
+    pg=ensure(pg,180);
+    const {ctx}=pg;
+    roundRect(ctx,M,pg.y,W-M*2,110,18,'#f7fbff','#d7e1ea');
+    ctx.fillStyle='#0b315b';ctx.font='900 22px Arial';
+    pg.y=wrapped(ctx,`🔎 INSPECTION · ${loc.b?.name||''}${loc.b&&loc.a?' — ':''}${loc.a?.name||'Apartment'}`,M+18,pg.y+18,W-M*2-190,28);
+    pill(ctx,`${issuesArr.length} finding(s)`,W-M-165,pg.y-28,'#fff4dd','#956000');
+    pg.y+=24;
+
+    for(let j=0;j<issuesArr.length;j++){
+      const q=issuesArr[j];
+      pg=ensure(pg,150);
+      ctx.fillStyle='#10233d';ctx.font='800 18px Arial';
+      const label=`${j+1}. ${q.area||q.room||'Area'}: ${q.problem||q.title||'Problem'}`;
+      pg.y=wrapped(ctx,label,M+26,pg.y,W-M*2-52,23)+3;
+      if(q.solution){
+        ctx.fillStyle='#45627b';ctx.font='17px Arial';
+        pg.y=wrapped(ctx,'Proposed solution: '+q.solution,M+26,pg.y,W-M*2-52,22)+3;
+      }
+      const phs=dailyInspectionPhotos(q).slice(0,4);
+      if(phs.length){
+        let x=M+26;pg.y+=8;
+        for(const ph of phs){
+          const im=await img(ph.dataUrl); if(!im)continue;
+          pg=ensure(pg,145);
+          fitImage(pg.ctx,im,x,pg.y,220,135,'cover');x+=232;
+          if(x+220>W-M){x=M+26;pg.y+=147}
+        }
+        if(x!==M+26)pg.y+=147;
+      }
+      pg.y+=8;
+    }
+    pg.y+=18;
+  }
+
+  ctx=pg.ctx;
+  ctx.fillStyle='#0b315b';ctx.font='900 26px Arial';ctx.fillText('DETAILED TASKS',M,pg.y);pg.y+=48;
+  if(!tasks.length){
+    ctx.fillStyle='#587087';ctx.font='18px Arial';ctx.fillText('No maintenance tasks recorded.',M,pg.y);pg.y+=40;
+  }
+  for(let i=0;i<tasks.length;i++)await taskCard(tasks[i],i);
+
+  pg=ensure(pg,80);
+  ctx=pg.ctx;ctx.fillStyle='#0b315b';ctx.font='900 26px Arial';ctx.fillText('INSPECTIONS',M,pg.y);pg.y+=48;
+  if(!inspections.length){
+    ctx.fillStyle='#587087';ctx.font='18px Arial';ctx.fillText('No inspections recorded.',M,pg.y);pg.y+=40;
+  }
+  for(let i=0;i<inspections.length;i++)await inspectionCard(inspections[i],i);
+
+  if(pg.y>110) pages.push(pg.c);
+
   const jpegs=[];
   for(const c of pages){
-    const dataUrl=c.toDataURL('image/jpeg',0.86);
-    const b64=dataUrl.split(',')[1],bin=atob(b64),bytes=new Uint8Array(bin.length);
+    const url=c.toDataURL('image/jpeg',0.90);
+    const b64=url.split(',')[1],bin=atob(b64),bytes=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
     jpegs.push({bytes,width:c.width,height:c.height});
   }
