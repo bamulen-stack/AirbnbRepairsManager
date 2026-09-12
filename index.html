@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.32 Paint Register & Technicians</title>
+<title>Airbnb Repairs Manager v9.33 Paint Target Selector</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -1864,11 +1864,47 @@ function showPaintRegister(type,id){
     <button class="btn soft" onclick="${type==='building'?`showBuilding('${id}')`:`showApartment('${id}')`}">← Back</button>`;
 }
 function addPaintArea(type,id){
-  openSheet('Add Area',`<div class="field"><label>Area / Room</label><input name="name" required placeholder="e.g. Living Room, Bedroom 4, Staircase"></div>`,f=>{
+  if(type==='building'){
+    const b=bld(id);if(!b)return;
+    const aps=(data.apartments||[]).filter(a=>a.buildingId===id).sort(smartApartmentSort);
+    const apartmentOptions=aps.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+    const body=`<div class="form">
+      <label>Add paint information to
+        <select name="paintTarget" id="paintTargetSelect" onchange="togglePaintTargetApartment()">
+          <option value="building">🏢 Main Building — ${esc(b.name)}</option>
+          <option value="apartment">🏠 Apartment</option>
+        </select>
+      </label>
+      <label id="paintApartmentChooser" style="display:none">Apartment
+        <select name="targetApartmentId">
+          <option value="">Select apartment...</option>${apartmentOptions}
+        </select>
+      </label>
+      <label>Area / Room
+        <input name="name" required placeholder="e.g. Exterior, Staircase, Living Room, Bedroom 4">
+      </label>
+    </div>`;
+    openSheet('Add Paint Area',body,f=>{
+      const target=f.paintTarget==='apartment'?'apartment':'building';
+      const targetId=target==='apartment'?f.targetApartmentId:id;
+      if(target==='apartment'&&!targetId){alert('Select an apartment.');return}
+      const o=paintOwner(target,targetId);if(!o)return;ensurePaintAreas(o);
+      const a={id:window.id?window.id():String(Date.now()),name:f.name||'Area',paints:[]};
+      o.paintAreas.push(a);window.paintOpenArea=a.id;
+      setTimeout(()=>showPaintRegister(target,targetId),0);
+    });
+    return;
+  }
+  openSheet('Add Area',`<div class="field"><label>Area / Room</label><input name="name" required placeholder="e.g. Living Room, Bedroom 4, Kitchen"></div>`,f=>{
     const o=paintOwner(type,id);if(!o)return;ensurePaintAreas(o);
     const a={id:window.id?window.id():String(Date.now()),name:f.name||'Area',paints:[]};
     o.paintAreas.push(a);window.paintOpenArea=a.id;
   });
+}
+function togglePaintTargetApartment(){
+  const sel=document.getElementById('paintTargetSelect');
+  const row=document.getElementById('paintApartmentChooser');
+  if(row)row.style.display=sel&&sel.value==='apartment'?'block':'none';
 }
 function renamePaintArea(type,id,areaId){
   const o=paintOwner(type,id),a=o?.paintAreas?.find(x=>x.id===areaId);if(!a)return;

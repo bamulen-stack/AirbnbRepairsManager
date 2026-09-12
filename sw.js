@@ -1,4 +1,4 @@
-const CACHE='airbnb-repairs-v9-32-paint-technicians';
+const CACHE='airbnb-repairs-v9-33-paint-target-selector';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./dashboard-cover.png'];
 
 self.addEventListener('install',event=>{
