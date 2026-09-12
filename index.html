@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.22 Premium Dashboard</title>
+<title>Airbnb Repairs Manager v9.23 CEO Dashboard</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -422,6 +422,30 @@ input::placeholder,textarea::placeholder{color:#7891a8!important}
   html,body{background:#fff!important;color:#111!important}
   .report,.client-report,.card{background:#fff!important;color:#111!important;box-shadow:none!important;border-color:#ddd!important}
 }
+</style>
+
+<style>
+.ceo-hero{position:relative;overflow:hidden;border-radius:22px;margin-bottom:14px;min-height:170px;border:1px solid #24506f;background:
+linear-gradient(90deg,rgba(4,25,45,.94) 0%,rgba(4,25,45,.76) 48%,rgba(4,25,45,.18) 100%),
+linear-gradient(135deg,#0b4d83,#07192c)}
+.ceo-hero:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 82% 24%,rgba(56,155,255,.28),transparent 26%);pointer-events:none}
+.ceo-hero-content{position:relative;z-index:1;padding:20px}
+.ceo-kicker{font-size:10px;letter-spacing:.17em;font-weight:900;color:#a9c7e4}
+.ceo-title{font-size:30px;font-weight:900;margin:5px 0 4px;color:#fff}
+.ceo-slogan{font-size:13px;line-height:1.35;color:#c9d9e8;max-width:245px}
+.ceo-today{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:stretch;margin-top:16px}
+.ceo-today-card{background:rgba(8,37,62,.82);border:1px solid #2b5b7c;border-radius:16px;padding:13px;backdrop-filter:blur(8px)}
+.ceo-today-card b{font-size:28px;color:#fff}
+.ceo-today-card .meta{color:#b7c9d9!important}
+.ceo-quick{align-self:stretch;display:flex;align-items:center;background:linear-gradient(135deg,#0b63ce,#1684ee);border:0;border-radius:16px;color:#fff;font-weight:900;padding:0 15px}
+.ceo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0 18px}
+.ceo-kpi{min-height:104px;border-radius:16px;padding:12px 10px;border:1px solid #24506f;background:linear-gradient(145deg,#0f2d49,#0a2239);box-shadow:0 10px 24px rgba(0,0,0,.18)}
+.ceo-kpi .ico{font-size:19px}.ceo-kpi b{display:block;font-size:25px;margin-top:5px;color:#fff}.ceo-kpi span{font-size:10px;color:#b7c8d9;line-height:1.15}.ceo-kpi.blue{background:linear-gradient(145deg,#0c3153,#0b2744)}.ceo-kpi.amber{background:linear-gradient(145deg,#3a2b19,#282119);border-color:#76532c}.ceo-kpi.red{background:linear-gradient(145deg,#3b1c2b,#291a2a);border-color:#7a3042}.ceo-kpi.green{background:linear-gradient(145deg,#0d3a30,#0b2927);border-color:#25604f}.ceo-kpi.purple{background:linear-gradient(145deg,#2a2250,#1e1b3e);border-color:#57468a}
+.ceo-section{margin:18px 0}.ceo-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}.ceo-section-head h3{margin:0;color:#fff;font-size:18px}.ceo-view{border:0;background:#10375a;color:#75bcff;border-radius:999px;padding:7px 11px;font-weight:800;font-size:11px}
+.ceo-activity{background:linear-gradient(145deg,#0f2d49,#0a2239);border:1px solid #214866;border-radius:17px;overflow:hidden}
+.ceo-activity-row{display:grid;grid-template-columns:34px 1fr auto;gap:9px;align-items:center;padding:11px;border-bottom:1px solid #183b58}.ceo-activity-row:last-child{border-bottom:0}.ceo-activity-icon{width:34px;height:34px;border-radius:10px;background:#123a5f;display:grid;place-items:center}.ceo-activity-title{font-weight:800;font-size:12px;color:#fff}.ceo-activity-meta{font-size:9px;color:#8ea7bc;margin-top:2px}.ceo-status{font-size:9px;font-weight:900;border-radius:999px;padding:5px 7px;background:#123a5f;color:#8dcbff}.ceo-status.done{background:#0d4938;color:#8bf0bd}.ceo-status.urgent{background:#55202d;color:#ff9aa4}
+.ceo-bottom-panels{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}.ceo-panel{border:1px solid #214866;border-radius:17px;padding:12px;background:linear-gradient(145deg,#0f2d49,#0a2239)}.ceo-panel h4{margin:0 0 9px;color:#fff;font-size:13px}.ceo-panel-line{padding:7px 0;border-bottom:1px solid #183b58;font-size:10px;color:#c5d5e4}.ceo-panel-line:last-child{border-bottom:0}.ceo-panel.urgent{border-color:#713043;background:linear-gradient(145deg,#321c29,#171d2a)}
+@media(max-width:380px){.ceo-grid{gap:6px}.ceo-kpi{padding:10px 7px}.ceo-kpi b{font-size:22px}.ceo-today{grid-template-columns:1fr}.ceo-quick{min-height:48px;justify-content:center}}
 </style>
 </head>
 <body>
@@ -1138,30 +1162,76 @@ function showAllInspections(){
 }
 
 function renderHome(){
-  let open=data.tasks.filter(t=>t.status!=='Completed'), due=open.filter(t=>t.date===today()), overdue=open.filter(t=>t.date&&t.date<today());
-  let upcoming=open.filter(t=>t.date>today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
-  let urgent=open.filter(t=>t.priority==='Urgent').slice(0,5), ms=monthlyStats();
-  document.getElementById('view').innerHTML=
-    `<div class="hero dashboard-link" tabindex="0" onclick="openDashboardTasks('Open','today','')"><div class="today">Today</div><div class="row space"><div><strong>${due.length}</strong><div class="sub">scheduled jobs</div><div class="tap-hint">Tap to view</div></div><div style="font-size:42px">🛠️</div></div></div>
-    <div class="stats">
-      <div class="stat stat-open dashboard-link" tabindex="0" onclick="openDashboardTasks('Open','','')"><b>${open.length}</b><span>Open</span><div class="tap-hint">Tap to view</div></div>
-      <div class="stat stat-overdue dashboard-link" tabindex="0" onclick="openDashboardTasks('Open','overdue','')"><b>${overdue.length}</b><span>Overdue</span><div class="tap-hint">Tap to view</div></div>
-      <div class="stat stat-urgent dashboard-link" tabindex="0" onclick="openDashboardTasks('Open','','Urgent')"><b>${urgent.length}</b><span>Urgent</span><div class="tap-hint">Tap to view</div></div>
-    </div>
-    <div class="summary-grid">
-      <div class="summary-box summary-tasks dashboard-link" tabindex="0" onclick="openDashboardTasks('All','month','')"><b>${ms.tasks}</b><span>Tasks this month</span><div class="tap-hint">Tap to view</div></div>
-      <div class="summary-box summary-completed dashboard-link" tabindex="0" onclick="openDashboardTasks('Completed','','')"><b>${ms.completed}</b><span>Completed</span><div class="tap-hint">Tap to view</div></div>
-      <div class="summary-box summary-costs dashboard-link" tabindex="0" onclick="openDashboardCosts()"><b>€${ms.cost.toFixed(0)}</b><span>Recorded costs</span><div class="tap-hint">Tap for summary</div></div>
-      <div class="summary-box summary-quotes dashboard-link" tabindex="0" onclick="openDashboardQuotes()"><b>${ms.quotes}</b><span>Quotations</span><div class="tap-hint">Tap to view</div></div>
-      <div class="summary-box dashboard-inspection-card dashboard-link" tabindex="0" onclick="showAllInspections()">
-        <div class="dash-row"><div><div class="dash-icon">🔎</div><div class="dash-label">Inspections</div><div class="dash-sub">Tap to view all</div></div><div class="dash-count">${(data.inspections||[]).length}</div></div>
+  const t=today(), all=data.tasks||[];
+  const todayTasks=all.filter(x=>x.date===t);
+  const open=all.filter(x=>x.status!=='Completed');
+  const overdue=open.filter(x=>x.date&&x.date<t);
+  const urgent=open.filter(x=>x.priority==='Urgent');
+  const month=t.slice(0,7);
+  const monthTasks=all.filter(x=>(x.date||'').startsWith(month));
+  const completed=monthTasks.filter(x=>x.status==='Completed');
+  const costs=(data.purchases||[]).reduce((s,x)=>s+(Number(x.cost)||0),0);
+  const quotes=(data.quotations||[]).length;
+  const inspections=(data.inspections||[]);
+  const properties=(data.apartments||[]).length;
+  const recent=all.slice().sort((a,b)=>((b.date||'')+(b.id||'')).localeCompare((a.date||'')+(a.id||''))).slice(0,4);
+  const upcomingDates=[...new Set(open.filter(x=>x.date&&x.date>=t).map(x=>x.date))].sort().slice(0,3);
+
+  const kpi=(cls,ico,num,label,click)=>`<div class="ceo-kpi ${cls}" onclick="${click}"><div class="ico">${ico}</div><b>${num}</b><span>${label}</span></div>`;
+
+  document.getElementById('view').innerHTML=`
+    <div class="ceo-hero">
+      <div class="ceo-hero-content">
+        <div class="ceo-kicker">PROPERTY MAINTENANCE SYSTEM</div>
+        <div class="ceo-title">Dashboard</div>
+        <div class="ceo-slogan">Maintain today.<br>Higher guest satisfaction tomorrow.</div>
+        <div class="ceo-today">
+          <div class="ceo-today-card" onclick="openDashboardToday()">
+            <div class="meta">📅 TODAY</div>
+            <b>${todayTasks.length}</b> <span>scheduled jobs</span>
+            <div class="meta">${todayTasks.filter(x=>x.status==='Completed').length} completed • ${todayTasks.filter(x=>x.status!=='Completed').length} remaining</div>
+          </div>
+          <button class="ceo-quick" onclick="newTask()">+ Quick Task</button>
+        </div>
       </div>
     </div>
-    <div class="section-head urgent-head"><h2>Urgent Repairs</h2><button class="small-btn primary" onclick="chooseTemplate()">+ Quick Task</button></div>
-    ${urgent.length?urgent.map(t=>taskCard(t).replace('class="card"','class="card urgent-card"')).join(''):'<div class="empty" style="background:#fff7f7;border-color:#f3cccc;color:#9f3434">No urgent repairs.</div>'}
-    <div class="today-accent"><div class="section-head" style="margin:0"><h2>Today</h2><div class="row"><button class="small-btn primary" onclick="showDailyReport(today())">📄 Daily Report</button><button class="small-btn soft" onclick="showDailyRoute(today())">🧭 Daily Route</button><button class="small-btn soft" onclick="newTask()">+ Blank Task</button></div></div></div>
-    ${due.length?due.map(taskCard).join(''):'<div class="empty">No work scheduled for today.</div>'}
-    <div class="section-head"><h2>Upcoming</h2></div>${upcoming.length?upcoming.map(taskCard).join(''):'<div class="empty">No upcoming work.</div>'}`;
+
+    <div class="ceo-grid">
+      ${kpi('blue','🔧',open.length,'Open Tasks','openDashboardOpen()')}
+      ${kpi('amber','🕒',overdue.length,'Overdue','openDashboardOverdue()')}
+      ${kpi('red','⚠️',urgent.length,'Urgent','openDashboardUrgent()')}
+      ${kpi('green','▥',monthTasks.length,'Tasks this month','openDashboardMonth()')}
+      ${kpi('green','✓',completed.length,'Completed','openDashboardCompleted()')}
+      ${kpi('purple','€','€'+Math.round(costs),'Recorded costs','openDashboardCosts()')}
+      ${kpi('purple','▤',quotes,'Quotations','openDashboardQuotes()')}
+      ${kpi('blue','🔎',inspections.length,'Inspections','showAllInspections()')}
+      ${kpi('','🏢',properties,'Properties',"route='properties';render()")}
+    </div>
+
+    <div class="ceo-section">
+      <div class="ceo-section-head"><h3>◷ Recent Activity</h3><button class="ceo-view" onclick="route='tasks';render()">View All ›</button></div>
+      <div class="ceo-activity">
+        ${recent.length?recent.map(x=>{
+          const a=apt(x.apartmentId), st=x.status==='Completed'?'done':x.priority==='Urgent'?'urgent':'';
+          return `<div class="ceo-activity-row" onclick="showTask('${x.id}')">
+            <div class="ceo-activity-icon">${x.category==='Electrical'?'⚡':x.category==='Painting'?'🖌️':x.category==='Plumbing'?'🔧':'🛠️'}</div>
+            <div><div class="ceo-activity-title">${esc(x.title||'Task')}</div><div class="ceo-activity-meta">${esc(a?.name||'')} • ${fmt(x.date)}</div></div>
+            <div class="ceo-status ${st}">${esc(x.status||x.priority||'Open')}</div>
+          </div>`;
+        }).join(''):'<div class="empty">No recent activity.</div>'}
+      </div>
+    </div>
+
+    <div class="ceo-bottom-panels">
+      <div class="ceo-panel urgent">
+        <h4>⚠ Urgent Repairs</h4>
+        ${urgent.length?urgent.slice(0,3).map(x=>`<div class="ceo-panel-line" onclick="showTask('${x.id}')"><b>${esc(x.title||'Urgent task')}</b><br>${esc(apt(x.apartmentId)?.name||'')}</div>`).join(''):'<div class="ceo-panel-line">No urgent repairs.</div>'}
+      </div>
+      <div class="ceo-panel">
+        <h4>📅 Upcoming</h4>
+        ${upcomingDates.length?upcomingDates.map(d=>`<div class="ceo-panel-line" onclick="route='calendar';render()"><b>${fmt(d)}</b><br>${open.filter(x=>x.date===d).length} task(s)</div>`).join(''):'<div class="ceo-panel-line">Nothing scheduled.</div>'}
+      </div>
+    </div>`;
 }
 function renderProperties(){
   let q=(window.propQ||'').trim().toLowerCase(), floor=window.propFloor||'', mode=window.propMode||'All';
