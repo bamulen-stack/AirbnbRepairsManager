@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.26 Correct MGV Header</title>
+<title>Airbnb Repairs Manager v9.27 Banner Fit</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -483,6 +483,18 @@ body.home-route .ceo-hero .ceo-title{display:none!important}
 body.home-route .ceo-hero .ceo-slogan{display:none!important}
 body.home-route .ceo-hero-content{padding:16px!important}
 body.home-route .ceo-today{margin-top:0!important}
+</style>
+
+<style>
+/* V9.27 — fit the complete MGV artwork without cropping the left/right branding */
+body.home-route .app-header{
+  background-color:#071f34!important;
+  background-image:var(--dashboard-cover, url('dashboard-cover.png'))!important;
+  background-repeat:no-repeat!important;
+  background-position:center center!important;
+  background-size:contain!important;
+  min-height:185px!important;
+}
 </style>
 </head>
 <body>

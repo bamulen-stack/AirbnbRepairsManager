@@ -1,4 +1,4 @@
-const CACHE='airbnb-repairs-v9-26-correct-mgv-header';
+const CACHE='airbnb-repairs-v9-27-banner-fit';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./dashboard-cover.png'];
 
 self.addEventListener('install',event=>{
