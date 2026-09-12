@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.20 Routine Search Groups</title>
+<title>Airbnb Repairs Manager v9.21 CEO Professional</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -328,11 +328,26 @@ textarea{min-height:90px;resize:vertical}
 .routine-apartment-title{font-weight:900}
 .routine-count{font-size:12px;color:var(--muted)}
 </style>
+
+<style>
+body{background:linear-gradient(180deg,#f1f6fc 0,#f7f9fc 320px)}
+.app-header{background:linear-gradient(135deg,#084a9f,#0b63ce 58%,#2a7fe0);border-radius:0 0 30px 30px}
+.brand small{letter-spacing:.16em;opacity:.9}
+.brand h1{font-weight:850;letter-spacing:-.02em}
+.card,.hero,.stat{border:1px solid rgba(20,55,90,.06)}
+.card{transition:transform .14s ease,box-shadow .14s ease}
+.card:active{transform:scale(.995)}
+.section-head h2{letter-spacing:-.015em}
+.pro-inspection-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.pro-inspection-summary>div{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:11px;text-align:center}
+.pro-inspection-summary b{display:block;font-size:20px;color:#102a43}
+.pro-inspection-summary span{font-size:11px;color:#6d7890}
+</style>
 </head>
 <body>
 <header class="app-header">
   <div class="header-row">
-    <div class="brand"><small>AIRBNB MAINTENANCE</small><h1 id="pageTitle">Dashboard</h1></div>
+    <div class="brand"><small>PROPERTY MAINTENANCE SYSTEM</small><h1 id="pageTitle">Dashboard</h1></div>
     <button class="icon-btn" id="quickAdd">+</button>
   </div>
 </header>
@@ -691,6 +706,17 @@ function inspectionHistoryHtml(apartmentId){
   let arr=(data.inspections||[]).filter(x=>x.apartmentId===apartmentId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(!arr.length)return '<div class="empty">No inspections yet.</div>';
   return arr.map(ins=>`<div class="card" onclick="showInspection('${ins.id}')"><div class="row space"><div><div class="card-title">🔎 Inspection • ${fmt(ins.date)}</div><div class="meta">${inspectionIssueCount(ins)} problem(s) • ${ins.status||'Open'}</div></div><span style="font-size:20px">›</span></div></div>`).join('');
+}
+
+function professionalInspectionSummary(ins){
+  const issues=ins?.issues||[];
+  const urgent=issues.filter(x=>(x.priority||'')==='Urgent').length;
+  const areas=new Set(issues.map(x=>(x.area||'').trim()).filter(Boolean)).size;
+  return `<div class="pro-inspection-summary">
+    <div><b>${areas||'—'}</b><span>Areas</span></div>
+    <div><b>${issues.length}</b><span>Findings</span></div>
+    <div><b>${urgent}</b><span>Urgent</span></div>
+  </div>`;
 }
 function showInspection(insId){
   let ins=inspectionById(insId);if(!ins)return;let a=apt(ins.apartmentId);selected=ins.apartmentId;ins.issues=ins.issues||[];
