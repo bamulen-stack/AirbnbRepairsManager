@@ -1,4 +1,4 @@
-const CACHE='airbnb-repairs-v9-31-mgv-professional-pdf';
+const CACHE='airbnb-repairs-v9-32-paint-technicians';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./dashboard-cover.png'];
 
 self.addEventListener('install',event=>{

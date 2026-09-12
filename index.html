@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.31 MGV Professional PDF</title>
+<title>Airbnb Repairs Manager v9.32 Paint Register & Technicians</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -529,6 +529,25 @@ body.home-route .app-header{
   .rp-inspection .rp-item-title:before{content:"🔎 INSPECTION · "}
   .no-print{display:none!important}
 }
+</style>
+
+<style>
+.paint-register-card{background:linear-gradient(145deg,#0f2d49,#0a2239);border:1px solid #24506f;border-radius:18px;padding:14px;margin:12px 0}
+.paint-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.paint-title{font-weight:900;color:#f7fbff}
+.paint-count{font-size:11px;color:#8ea7bc}
+.paint-area{border:1px solid #214866;border-radius:15px;margin:10px 0;overflow:hidden;background:#0b2339}
+.paint-area-head{display:flex;justify-content:space-between;align-items:center;padding:12px 13px;cursor:pointer}
+.paint-area-name{font-weight:900;color:#eef7ff}
+.paint-area-body{padding:0 12px 12px}
+.paint-entry{border-top:1px solid #183b58;padding:10px 0}
+.paint-entry:first-child{border-top:0}
+.paint-entry-grid{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+.paint-code{display:inline-block;background:#123a5f;color:#9fd0ff;border-radius:999px;padding:4px 8px;font-weight:900;font-size:11px;margin-top:5px}
+.paint-meta{font-size:11px;color:#9fb0c3;line-height:1.45}
+.paint-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.paint-thumb{width:54px;height:54px;border-radius:10px;object-fit:cover;border:1px solid #2a5675}
+.paint-empty{color:#7891a8;font-size:12px;padding:8px 0}
 </style>
 </head>
 <body>
@@ -1763,7 +1782,7 @@ function editApartment(i){
 function taskForm(t={},apartmentId=''){
   let opts=data.apartments.map(a=>'<option value="'+a.id+'" '+((t.apartmentId||apartmentId)===a.id?'selected':'')+'>'+esc(a.name)+(a.buildingId?' — '+esc(bld(a.buildingId)?.name||''):'')+'</option>').join('');
   let options=(arr,val)=>arr.map(x=>'<option '+(val===x?'selected':'')+'>'+x+'</option>').join('');
-  return '<div class="form"><label>Apartment<select name="apartmentId" required><option value="">Select...</option>'+opts+'</select></label><label>Work title<input name="title" required value="'+esc(t.title||'')+'"></label><div class="form two"><label>Date<input type="date" name="date" value="'+esc(t.date||today())+'"></label><label>Start time<input type="time" name="time" value="'+esc(t.time||'')+'"></label></div><div class="form two"><label>Ready by / Check-in deadline<input type="datetime-local" name="readyBy" value="'+esc(t.readyBy||'')+'"></label><label>Problem tag<input name="problemTag" placeholder="e.g. A/C leaking" value="'+esc(t.problemTag||'')+'"></label></div><div class="form two"><label>Category<select name="category">'+options(['Repair','Plumbing','Electrical','Painting','Carpentry','Furniture','Appliance','Partial Renovation','Inspection','Other'],t.category)+'</select></label><label>Priority<select name="priority">'+options(['Normal','High','Urgent'],t.priority||'Normal')+'</select></label></div><div class="form two"><label>Status<select name="status">'+options(['Pending','In Progress','Completed'],t.status||'Pending')+'</select></label><label>Assigned to<input name="assignedTo" value="'+esc(t.assignedTo||'')+'"></label></div><label>Recurring maintenance<select name="recurrence">'+options(['None','Weekly','Monthly','Every 3 months','Every 6 months','Yearly'],t.recurrence||'None')+'</select></label><label>Description<textarea name="description">'+esc(t.description||'')+'</textarea></label><div class="form two"><label>Materials<input name="materials" value="'+esc(t.materials||'')+'"></label><label>Cost (€)<input name="cost" type="number" step="0.01" value="'+esc(t.cost||'')+'"></label></div><label>Notes<textarea name="notes">'+esc(t.notes||'')+'</textarea></label></div>';
+  return '<div class="form"><label>Apartment<select name="apartmentId" required><option value="">Select...</option>'+opts+'</select></label><label>Work title<input name="title" required value="'+esc(t.title||'')+'"></label><div class="form two"><label>Date<input type="date" name="date" value="'+esc(t.date||today())+'"></label><label>Start time<input type="time" name="time" value="'+esc(t.time||'')+'"></label></div><div class="form two"><label>Ready by / Check-in deadline<input type="datetime-local" name="readyBy" value="'+esc(t.readyBy||'')+'"></label><label>Problem tag<input name="problemTag" placeholder="e.g. A/C leaking" value="'+esc(t.problemTag||'')+'"></label></div><div class="form two"><label>Category<select name="category">'+options(['Repair','Plumbing','Electrical','Painting','Carpentry','Furniture','Appliance','Partial Renovation','Inspection','Other'],t.category)+'</select></label><label>Priority<select name="priority">'+options(['Normal','High','Urgent'],t.priority||'Normal')+'</select></label></div><div class="form two"><label>Status<select name="status">'+options(['Pending','In Progress','Completed'],t.status||'Pending')+'</select></label><label>Assigned to<input name="assignedTo" value="'+esc(t.assignedTo||'')+'"></label></div><label>Technician / Performed by<input name="technician" placeholder="e.g. Panos, Nikos" value="'+esc(t.technician||'')+'"></label><label>Recurring maintenance<select name="recurrence">'+options(['None','Weekly','Monthly','Every 3 months','Every 6 months','Yearly'],t.recurrence||'None')+'</select></label><label>Description<textarea name="description">'+esc(t.description||'')+'</textarea></label><div class="form two"><label>Materials<input name="materials" value="'+esc(t.materials||'')+'"></label><label>Cost (€)<input name="cost" type="number" step="0.01" value="'+esc(t.cost||'')+'"></label></div><label>Notes<textarea name="notes">'+esc(t.notes||'')+'</textarea></label></div>';
 }
 
 const TASK_TEMPLATES=[
@@ -1793,10 +1812,119 @@ function newTask(apartmentId=''){
   openSheet('New Task',taskForm({},apartmentId),v=>data.tasks.push({id:id(),createdAt:Date.now(),...v}))
 }
 function editTask(i){let t=data.tasks.find(x=>x.id===i);openSheet('Edit Task',taskForm(t),v=>Object.assign(t,v))}
+
+function paintOwner(type,id){
+  return type==='building'?bld(id):apt(id);
+}
+function ensurePaintAreas(owner){
+  if(!owner.paintAreas)owner.paintAreas=[];
+  return owner.paintAreas;
+}
+function showPaintRegister(type,id){
+  const owner=paintOwner(type,id); if(!owner)return;
+  ensurePaintAreas(owner);
+  document.getElementById('pageTitle').textContent='Paint & Finishes';
+  const areas=owner.paintAreas||[];
+  const body=areas.length?areas.map(a=>{
+    const open=window.paintOpenArea===a.id;
+    return `<div class="paint-area">
+      <div class="paint-area-head" onclick="window.paintOpenArea=window.paintOpenArea==='${a.id}'?'':'${a.id}';showPaintRegister('${type}','${id}')">
+        <div><div class="paint-area-name">🎨 ${esc(a.name)}</div><div class="paint-count">${(a.paints||[]).length} paint${(a.paints||[]).length===1?'':'s'}</div></div>
+        <div style="color:#7cc1ff">${open?'⌃':'⌄'}</div>
+      </div>
+      ${open?`<div class="paint-area-body">
+        ${(a.paints||[]).length?(a.paints||[]).map(pt=>`
+          <div class="paint-entry">
+            <div class="paint-entry-grid">
+              <div>
+                <div style="font-weight:800;color:#f4f8fc">${esc(pt.surface||'Surface')}</div>
+                <div class="paint-meta">${[pt.brand,pt.colorName,pt.finish].filter(Boolean).map(esc).join(' • ')}</div>
+                ${pt.code?`<span class="paint-code">${esc(pt.code)}</span>`:''}
+                ${pt.notes?`<div class="paint-meta" style="margin-top:5px">${esc(pt.notes)}</div>`:''}
+              </div>
+              ${pt.photoData?`<img class="paint-thumb" src="${pt.photoData}" onclick="openPaintPhoto('${type}','${id}','${a.id}','${pt.id}')">`:''}
+            </div>
+            <div class="paint-actions">
+              <button class="small-btn soft" onclick="editPaintEntry('${type}','${id}','${a.id}','${pt.id}')">Edit</button>
+              <button class="small-btn soft" onclick="choosePaintPhoto('${type}','${id}','${a.id}','${pt.id}')">📷 Photo</button>
+              <button class="small-btn danger" onclick="deletePaintEntry('${type}','${id}','${a.id}','${pt.id}')">Delete</button>
+            </div>
+          </div>`).join(''):'<div class="paint-empty">No paint codes in this area yet.</div>'}
+        <button class="small-btn primary" onclick="addPaintEntry('${type}','${id}','${a.id}')">+ Add Paint</button>
+        <button class="small-btn soft" onclick="renamePaintArea('${type}','${id}','${a.id}')">Rename Area</button>
+        <button class="small-btn danger" onclick="deletePaintArea('${type}','${id}','${a.id}')">Delete Area</button>
+      </div>`:''}
+    </div>`;
+  }).join(''):'<div class="empty">No areas added yet.</div>';
+  document.getElementById('view').innerHTML=
+    `<div class="paint-register-card">
+      <div class="paint-head"><div><div class="paint-title">🎨 Paint & Finish Register</div><div class="paint-count">${esc(owner.name||'')}</div></div>
+      <button class="small-btn primary" onclick="addPaintArea('${type}','${id}')">+ Add Area</button></div>
+    </div>${body}
+    <button class="btn soft" onclick="${type==='building'?`showBuilding('${id}')`:`showApartment('${id}')`}">← Back</button>`;
+}
+function addPaintArea(type,id){
+  openSheet('Add Area',`<div class="field"><label>Area / Room</label><input name="name" required placeholder="e.g. Living Room, Bedroom 4, Staircase"></div>`,f=>{
+    const o=paintOwner(type,id);if(!o)return;ensurePaintAreas(o);
+    const a={id:window.id?window.id():String(Date.now()),name:f.name||'Area',paints:[]};
+    o.paintAreas.push(a);window.paintOpenArea=a.id;
+  });
+}
+function renamePaintArea(type,id,areaId){
+  const o=paintOwner(type,id),a=o?.paintAreas?.find(x=>x.id===areaId);if(!a)return;
+  openSheet('Rename Area',`<div class="field"><label>Area / Room</label><input name="name" required value="${esc(a.name||'')}"></div>`,f=>{a.name=f.name||a.name;});
+}
+function deletePaintArea(type,id,areaId){
+  const o=paintOwner(type,id);if(!o||!confirm('Delete this area and all its paint codes?'))return;
+  o.paintAreas=(o.paintAreas||[]).filter(x=>x.id!==areaId);save();showPaintRegister(type,id);
+}
+function paintForm(pt={}){
+  return `<div class="field"><label>Surface / Element</label><input name="surface" required placeholder="e.g. Main walls, Accent wall, Ceiling" value="${esc(pt.surface||'')}"></div>
+  <div class="form two"><label>Brand<input name="brand" placeholder="Vivechrom, Benjamin Moore..." value="${esc(pt.brand||'')}"></label><label>Colour name<input name="colorName" value="${esc(pt.colorName||'')}"></label></div>
+  <div class="form two"><label>Colour code<input name="code" placeholder="e.g. RAL 7035 / 1188" value="${esc(pt.code||'')}"></label><label>Finish<input name="finish" placeholder="Matt / Satin / Gloss" value="${esc(pt.finish||'')}"></label></div>
+  <label>Notes<textarea name="notes" placeholder="e.g. TV wall, all ceilings, exterior facade">${esc(pt.notes||'')}</textarea></label>`;
+}
+function addPaintEntry(type,id,areaId){
+  openSheet('Add Paint / Finish',paintForm({}),f=>{
+    const o=paintOwner(type,id),a=o?.paintAreas?.find(x=>x.id===areaId);if(!a)return;
+    a.paints=a.paints||[];
+    a.paints.push({id:window.id?window.id():String(Date.now()),...f,photoData:''});
+    window.paintOpenArea=areaId;
+  });
+}
+function editPaintEntry(type,id,areaId,paintId){
+  const o=paintOwner(type,id),a=o?.paintAreas?.find(x=>x.id===areaId),pt=a?.paints?.find(x=>x.id===paintId);if(!pt)return;
+  openSheet('Edit Paint / Finish',paintForm(pt),f=>{Object.assign(pt,f);window.paintOpenArea=areaId;});
+}
+function deletePaintEntry(type,id,areaId,paintId){
+  const o=paintOwner(type,id),a=o?.paintAreas?.find(x=>x.id===areaId);if(!a||!confirm('Delete this paint code?'))return;
+  a.paints=(a.paints||[]).filter(x=>x.id!==paintId);save();window.paintOpenArea=areaId;showPaintRegister(type,id);
+}
+function choosePaintPhoto(type,id,areaId,paintId){
+  const inp=document.createElement('input');inp.type='file';inp.accept='image/*';
+  inp.onchange=()=>{
+    const f=inp.files&&inp.files[0];if(!f)return;
+    const fr=new FileReader();fr.onload=()=>{
+      const im=new Image();im.onload=()=>{
+        const c=document.createElement('canvas'),max=900,s=Math.min(1,max/Math.max(im.width,im.height));
+        c.width=Math.max(1,Math.round(im.width*s));c.height=Math.max(1,Math.round(im.height*s));
+        c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+        const o=paintOwner(type,id),a=o?.paintAreas?.find(x=>x.id===areaId),pt=a?.paints?.find(x=>x.id===paintId);
+        if(pt){pt.photoData=c.toDataURL('image/jpeg',.78);save();window.paintOpenArea=areaId;showPaintRegister(type,id);}
+      };im.src=fr.result;
+    };fr.readAsDataURL(f);
+  };inp.click();
+}
+function openPaintPhoto(type,id,areaId,paintId){
+  const o=paintOwner(type,id),a=o?.paintAreas?.find(x=>x.id===areaId),pt=a?.paints?.find(x=>x.id===paintId);if(!pt?.photoData)return;
+  const viewer=document.getElementById('photoViewer'),img=document.getElementById('photoViewerImg');
+  img.src=pt.photoData;viewer.classList.add('show');
+}
+
 function showBuilding(i){
   recordVisit('buildings',i);
   let b=bld(i), aps=data.apartments.filter(a=>a.buildingId===i).sort(smartApartmentSort);selected=i;document.getElementById('pageTitle').textContent=b.name;
-  document.getElementById('view').innerHTML='<div class="card"><div class="row space"><div><div class="card-title">'+esc(b.name)+'</div><div class="meta">'+esc(b.address||'')+'</div></div><button class="small-btn soft" onclick="editBuilding(\''+i+'\')">Edit</button></div>'+(b.entranceCode?'<div class="detail-grid"><div class="detail-line">Entrance code: <span class="code">'+esc(b.entranceCode)+'</span></div></div>':'')+'</div><div class="section-head"><h2>Apartments</h2><button class="small-btn primary" onclick="newApartment(\''+i+'\')">+ Apartment</button></div>'+(aps.length?aps.map(apartmentCard).join(''):'<div class="empty">No apartments yet.</div>')+'<button class="btn soft" onclick="route=\'properties\';render()">← Back</button>'
+  document.getElementById('view').innerHTML='<div class="card"><div class="row space"><div><div class="card-title">'+esc(b.name)+'</div><div class="meta">'+esc(b.address||'')+'</div></div><button class="small-btn soft" onclick="editBuilding(\''+i+'\')">Edit</button></div>'+(b.entranceCode?'<div class="detail-grid"><div class="detail-line">Entrance code: <span class="code">'+esc(b.entranceCode)+'</span></div></div>':'')+'</div><div class="row" style="margin:12px 0"><button class="btn soft" onclick="showPaintRegister(\'building\',\''+i+'\')">🎨 Paint & Finishes</button></div><div class="section-head"><h2>Apartments</h2><button class="small-btn primary" onclick="newApartment(\''+i+'\')">+ Apartment</button></div>'+(aps.length?aps.map(apartmentCard).join(''):'<div class="empty">No apartments yet.</div>')+'<button class="btn soft" onclick="route=\'properties\';render()">← Back</button>'
 }
 
 function recurringProblems(apartmentId){
@@ -1816,7 +1944,7 @@ function showApartment(i){
   document.getElementById('view').innerHTML=
     `<div class="card"><div class="row space"><div><div class="card-title">${esc(a.name)}</div><div class="meta">${esc(a.buildingId?(bld(a.buildingId)?.name||''):'Standalone apartment')}</div></div><div class="row"><button class="pin-btn" onclick="toggleFavorite('${i}')">${isFavorite(i)?'⭐':'☆'}</button><button class="small-btn soft" onclick="editApartment('${i}')">Edit</button></div></div>
     <div class="detail-grid">${a.address?`<div class="detail-line">📍 ${esc(a.address)}${a.floor?' • Floor '+esc(a.floor):''}</div>`:''}${a.lockboxCode?`<div class="detail-line">🔐 Lockbox: <span class="code">${esc(a.lockboxCode)}</span> ${esc(a.lockboxLocation||'')}</div>`:''}${a.doorCodes?`<div class="detail-line">🚪 Access: <span class="code">${esc(a.doorCodes)}</span></div>`:''}${a.wifiInfo?`<div class="detail-line">📶 Wi‑Fi: ${esc(a.wifiInfo)}</div>`:''}${a.panelLocation?`<div class="detail-line">⚡ Electrical panel: ${esc(a.panelLocation)}</div>`:''}${a.waterValve?`<div class="detail-line">🚰 Main water valve: ${esc(a.waterValve)}</div>`:''}${a.waterHeater?`<div class="detail-line">♨ Water heater: ${esc(a.waterHeater)}</div>`:''}${a.acInfo?`<div class="detail-line">❄ A/C: ${esc(a.acInfo)}</div>`:''}${a.technicalNotes?`<div class="detail-line">🛠 ${esc(a.technicalNotes)}</div>`:''}</div></div>
-    <div class="quick-grid"><button class="quick-action" onclick="newTask('${i}')">➕ Blank Task</button><button class="quick-action" onclick="chooseTemplate('${i}')">🛠 Quick Task</button><button class="quick-action" onclick="newQuotation('${i}')">💶 Quote</button><button class="quick-action" onclick="newInspection('${i}')">🔎 Inspection</button><button class="quick-action" onclick="showApartmentQR('${i}')">▦ QR</button></div>
+    <div class="quick-grid"><button class="quick-action" onclick="newTask('${i}')">➕ Blank Task</button><button class="quick-action" onclick="chooseTemplate('${i}')">🛠 Quick Task</button><button class="quick-action" onclick="newQuotation('${i}')">💶 Quote</button><button class="quick-action" onclick="newInspection('${i}')">🔎 Inspection</button><button class="quick-action" onclick="showApartmentQR('${i}')">▦ QR</button><button class="quick-action" onclick="showPaintRegister('apartment','${i}')">🎨 Paint & Finishes</button></div>
     ${health}
     <div class="section-head"><h2>Inspection History</h2><button class="small-btn primary" onclick="newInspection('${i}')">+ Inspection</button></div>
     ${inspectionHistoryHtml(i)}
@@ -1866,7 +1994,7 @@ function importMGVQuote(){
 }
 function showTask(i){
   let t=data.tasks.find(x=>x.id===i), a=apt(t.apartmentId);selected=i;document.getElementById('pageTitle').textContent='Task Details';
-  document.getElementById('view').innerHTML='<div class="card"><div class="row space"><div><div class="card-title">'+esc(t.title)+'</div><div class="meta">'+esc(a?.name||'')+'</div></div><button class="small-btn soft" onclick="editTask(\''+i+'\')">Edit</button></div>'+statusBadge(t)+'<div class="detail-grid"><div class="detail-line">📅 '+fmt(t.date)+(t.time?' • '+esc(t.time):'')+'</div>'+(t.readyBy?'<div class="detail-line">⏰ Ready by: '+esc(new Date(t.readyBy).toLocaleString())+'</div>':'')+(t.problemTag?'<div class="detail-line">🏷 '+esc(t.problemTag)+'</div>':'')+(t.category?'<div class="detail-line">🧰 '+esc(t.category)+'</div>':'')+(t.assignedTo?'<div class="detail-line">👤 '+esc(t.assignedTo)+'</div>':'')+(t.description?'<div class="detail-line">'+esc(t.description)+'</div>':'')+(t.materials?'<div class="detail-line"><b>Materials:</b> '+esc(t.materials)+'</div>':'')+(t.cost?'<div class="detail-line"><b>Cost:</b> €'+esc(t.cost)+'</div>':'')+'</div></div>'+renderTaskPhotos(i)+'<div class="section-head"><h2>Quotation</h2><button class="small-btn primary" onclick="openPricingForTask(\''+i+'\')">💶 Create Quotation</button></div>'+taskQuotationHtml(i)+'<div class="section-head"><h2>Costs</h2><button class="small-btn primary" onclick="newPurchase(\''+i+'\')">+ Material</button></div>'+((data.purchases||[]).filter(p=>p.taskId===i).length?(data.purchases||[]).filter(p=>p.taskId===i).map(purchaseCard).join(''):'<div class="empty">No material purchases for this task.</div>')+'<div class="row no-print" style="flex-wrap:wrap">'+(t.status!=='Completed'?'<button class="btn primary" onclick="completeTask(\''+i+'\')">Complete</button>':'')+'<button class="btn soft" onclick="duplicateTask(\''+i+'\')">Duplicate</button><button class="btn soft" onclick="showWorkReport(\''+i+'\')">Work Report</button><button class="btn soft" onclick="showBeforeAfter(\''+i+'\')">Before / After</button><button class="btn primary" onclick="showClientReadyReport(\''+i+'\')">Client Report</button><button class="btn danger" onclick="deleteTask(\''+i+'\')">Delete</button><button class="btn soft" onclick="route=\'tasks\';render()">← Back</button></div>';
+  document.getElementById('view').innerHTML='<div class="card"><div class="row space"><div><div class="card-title">'+esc(t.title)+'</div><div class="meta">'+esc(a?.name||'')+'</div></div><button class="small-btn soft" onclick="editTask(\''+i+'\')">Edit</button></div>'+statusBadge(t)+'<div class="detail-grid"><div class="detail-line">📅 '+fmt(t.date)+(t.time?' • '+esc(t.time):'')+'</div>'+(t.readyBy?'<div class="detail-line">⏰ Ready by: '+esc(new Date(t.readyBy).toLocaleString())+'</div>':'')+(t.problemTag?'<div class="detail-line">🏷 '+esc(t.problemTag)+'</div>':'')+(t.category?'<div class="detail-line">🧰 '+esc(t.category)+'</div>':'')+(t.assignedTo?'<div class="detail-line">👤 Assigned to: '+esc(t.assignedTo)+'</div>':'')+(t.technician?'<div class="detail-line">🧑‍🔧 Technician: '+esc(t.technician)+'</div>':'')+(t.description?'<div class="detail-line">'+esc(t.description)+'</div>':'')+(t.materials?'<div class="detail-line"><b>Materials:</b> '+esc(t.materials)+'</div>':'')+(t.cost?'<div class="detail-line"><b>Cost:</b> €'+esc(t.cost)+'</div>':'')+'</div></div>'+renderTaskPhotos(i)+'<div class="section-head"><h2>Quotation</h2><button class="small-btn primary" onclick="openPricingForTask(\''+i+'\')">💶 Create Quotation</button></div>'+taskQuotationHtml(i)+'<div class="section-head"><h2>Costs</h2><button class="small-btn primary" onclick="newPurchase(\''+i+'\')">+ Material</button></div>'+((data.purchases||[]).filter(p=>p.taskId===i).length?(data.purchases||[]).filter(p=>p.taskId===i).map(purchaseCard).join(''):'<div class="empty">No material purchases for this task.</div>')+'<div class="row no-print" style="flex-wrap:wrap">'+(t.status!=='Completed'?'<button class="btn primary" onclick="completeTask(\''+i+'\')">Complete</button>':'')+'<button class="btn soft" onclick="duplicateTask(\''+i+'\')">Duplicate</button><button class="btn soft" onclick="showWorkReport(\''+i+'\')">Work Report</button><button class="btn soft" onclick="showBeforeAfter(\''+i+'\')">Before / After</button><button class="btn primary" onclick="showClientReadyReport(\''+i+'\')">Client Report</button><button class="btn danger" onclick="deleteTask(\''+i+'\')">Delete</button><button class="btn soft" onclick="route=\'tasks\';render()">← Back</button></div>';
 }
 
 let currentPhotoTask=null;
@@ -1963,6 +2091,7 @@ function dailyTaskHtml(t){
     ${t.materials?`<div><b>Materials:</b> ${esc(t.materials)}</div>`:''}
     ${t.cost?`<div><b>Cost:</b> €${esc(t.cost)}</div>`:''}
     ${t.assignedTo?`<div><b>Assigned to:</b> ${esc(t.assignedTo)}</div>`:''}
+    ${t.technician?`<div><b>Performed by:</b> ${esc(t.technician)}</div>`:''}
     ${ps.length?`<div class="daily-report-photos">${ps.map(p=>`<div><img src="${p.dataUrl}"><div class="meta">${esc(p.type||'Photo')}</div></div>`).join('')}</div>`:''}
   </div>`;
 }
@@ -2210,6 +2339,7 @@ async function buildDailyReportPdf(date){
     pg.y=wrapped(ctx,meta,M+18,pg.y+6,W-M*2-36,22)+4;
     if(t.description){ctx.fillStyle='#10233d';ctx.font='17px Arial';pg.y=wrapped(ctx,'Work: '+t.description,M+18,pg.y,W-M*2-36,22)+3}
     if(t.notes){ctx.fillStyle='#10233d';ctx.font='17px Arial';pg.y=wrapped(ctx,'Notes: '+t.notes,M+18,pg.y,W-M*2-36,22)+3}
+    if(t.technician){ctx.fillStyle='#0b315b';ctx.font='700 17px Arial';pg.y=wrapped(ctx,'Performed by: '+t.technician,M+18,pg.y,W-M*2-36,22)+3}
 
     const ps=dailyTaskPhotos(t.id).slice(0,4);
     if(ps.length){
@@ -2347,6 +2477,7 @@ function buildProfessionalDailyPrint(date){
       ${x.area?`<div class="rp-line"><span class="rp-label">Area:</span> ${esc(x.area)}</div>`:''}
       ${x.description?`<div class="rp-line"><span class="rp-label">Work:</span> ${esc(x.description)}</div>`:''}
       ${x.notes?`<div class="rp-line"><span class="rp-label">Notes:</span> ${esc(x.notes)}</div>`:''}
+      ${x.technician?`<div class="rp-line"><span class="rp-label">Performed by:</span> ${esc(x.technician)}</div>`:''}
       ${ids.length?`<div class="rp-photos">${photoHTML(ids)}</div>`:''}
     </div>`;
   }).join('');
