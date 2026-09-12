@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.24 Custom Dashboard Cover</title>
+<title>Airbnb Repairs Manager v9.26 Correct MGV Header</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -460,6 +460,29 @@ body.home-route .app-header .icon-btn{display:none!important}
 .ceo-hero-content{padding-top:115px!important}
 .cover-preview{width:100%;height:120px;object-fit:cover;border-radius:16px;border:1px solid #28506d;margin:10px 0}
 .cover-actions{display:flex;gap:8px;flex-wrap:wrap}
+</style>
+
+<style>
+body.home-route .app-header{
+  min-height:185px!important;
+  background:
+    linear-gradient(90deg,rgba(3,18,34,.06),rgba(3,18,34,.02)),
+    var(--dashboard-cover, url('dashboard-cover.png')) center/cover no-repeat!important;
+  border-radius:0 0 28px 28px!important;
+}
+body.home-route .app-header .brand,
+body.home-route .app-header .icon-btn{display:none!important}
+body.home-route .ceo-hero{
+  min-height:auto!important;
+  background:linear-gradient(145deg,#0f2d49,#0a2239)!important;
+  border:1px solid #24506f!important;
+}
+body.home-route .ceo-hero:after{display:none!important}
+body.home-route .ceo-hero .ceo-kicker,
+body.home-route .ceo-hero .ceo-title{display:none!important}
+body.home-route .ceo-hero .ceo-slogan{display:none!important}
+body.home-route .ceo-hero-content{padding:16px!important}
+body.home-route .ceo-today{margin-top:0!important}
 </style>
 </head>
 <body>
