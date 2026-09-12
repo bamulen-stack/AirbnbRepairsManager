@@ -1,4 +1,4 @@
-const CACHE='airbnb-repairs-v9-21-ceo-professional';
+const CACHE='airbnb-repairs-v9-22-premium-dashboard';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{

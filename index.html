@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.21 CEO Professional</title>
+<title>Airbnb Repairs Manager v9.22 Premium Dashboard</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -342,6 +342,86 @@ body{background:linear-gradient(180deg,#f1f6fc 0,#f7f9fc 320px)}
 .pro-inspection-summary>div{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:11px;text-align:center}
 .pro-inspection-summary b{display:block;font-size:20px;color:#102a43}
 .pro-inspection-summary span{font-size:11px;color:#6d7890}
+</style>
+
+<style>
+:root{
+  --bg:#07192c!important;
+  --card:#0d2740!important;
+  --text:#f3f7fc!important;
+  --muted:#9fb0c3!important;
+  --line:#1b3d5c!important;
+  --light:#123454!important;
+  --shadow:0 12px 30px rgba(0,0,0,.24)!important;
+}
+html,body{background:#07192c!important;color:var(--text)!important}
+body{
+  background:
+    radial-gradient(circle at 85% 6%,rgba(31,126,224,.24),transparent 26%),
+    radial-gradient(circle at 8% 28%,rgba(0,190,170,.10),transparent 25%),
+    linear-gradient(180deg,#07192c 0,#081d32 42%,#07192c 100%)!important;
+}
+.app-header{
+  background:
+    linear-gradient(100deg,rgba(4,37,73,.88),rgba(11,99,206,.78)),
+    url('https://mygreekvacations.com/images/projects/banners/eec7d66Olympus%20Residence%20-%20Photo1.jpg') center/cover!important;
+  border-radius:0 0 30px 30px!important;
+  box-shadow:0 16px 34px rgba(0,0,0,.30)!important;
+}
+.app-header:after{content:"";position:absolute;inset:0;border-radius:0 0 30px 30px;background:linear-gradient(180deg,rgba(2,16,31,.06),rgba(2,16,31,.46));pointer-events:none}
+.header-row{position:relative;z-index:1}
+.brand small{color:#dbeafe!important;opacity:.92!important}
+.brand h1{color:#fff!important;text-shadow:0 2px 10px rgba(0,0,0,.25)}
+.icon-btn{background:#f4f8fc!important;color:#0b63ce!important}
+.card,.hero,.stat,.summary-box,.empty,.safe-banner,.routine-item,.routine-building-head,.routine-apartment,.client-report{
+  background:linear-gradient(145deg,#0f2d49,#0a2239)!important;
+  border:1px solid #214866!important;
+  color:#f3f7fc!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.18)!important;
+}
+.card-title,.section-head h2,.hero strong,.stat b,.summary-box b{color:#f7fbff!important}
+.meta,.muted,.sub,.tap-hint,.summary-box span,.stat span,.today{color:#9fb0c3!important}
+input,select,textarea{
+  background:#0b2339!important;color:#f4f8fc!important;border-color:#28506d!important;
+}
+input::placeholder,textarea::placeholder{color:#7891a8!important}
+.bottom-nav{
+  background:rgba(6,24,42,.97)!important;border-top:1px solid #20425f!important;
+  backdrop-filter:blur(14px);
+}
+.nav{color:#8198ad!important}.nav.active{color:#42a5ff!important}
+.soft{background:#123a5f!important;color:#7cc1ff!important}
+.primary{background:linear-gradient(135deg,#0b63ce,#1684ee)!important;color:#fff!important}
+.danger{background:#421d2a!important;color:#ff8e9a!important}
+.stat-open,.summary-tasks{background:linear-gradient(145deg,#0c3153,#0b2744)!important}
+.stat-overdue{background:linear-gradient(145deg,#392b1b,#2b241c)!important;border-color:#74512b!important}
+.stat-urgent,.urgent-card{background:linear-gradient(145deg,#3a1c2a,#28192a)!important;border-color:#7a3042!important}
+.summary-completed{background:linear-gradient(145deg,#0c382f,#0b2b27)!important;border-color:#23604d!important}
+.summary-costs{background:linear-gradient(145deg,#14382f,#0b2b29)!important}
+.summary-quotes{background:linear-gradient(145deg,#2a2250,#1e1b3e)!important;border-color:#564589!important}
+.dashboard-inspection-card{background:linear-gradient(145deg,#0f3359,#0c2949)!important;border-color:#2d69a3!important}
+.dashboard-inspection-card .dash-icon{font-size:24px;line-height:1}
+.dashboard-inspection-card .dash-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.dashboard-inspection-card .dash-count{font-size:34px;font-weight:900;color:#7cc1ff}
+.dashboard-inspection-card .dash-label{font-size:14px;font-weight:800;color:#d9ecff}
+.dashboard-inspection-card .dash-sub{font-size:11px;color:#8eabc3;margin-top:3px}
+.inspection-list-card{border-left:4px solid #2f91ee!important}
+.inspection-list-card.open{border-left-color:#f3a73b!important}
+.inspection-list-card.completed{border-left-color:#35c58a!important}
+.calendar-day-row{
+  background:linear-gradient(145deg,#0f2d49,#0a2239);border:1px solid #214866;border-radius:16px;
+  margin:10px 0;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.16)
+}
+.calendar-day-head{display:flex;align-items:center;justify-content:space-between;padding:14px 15px;cursor:pointer}
+.calendar-day-head strong{color:#f7fbff}
+.calendar-day-count{background:#123a5f;color:#8dcbff;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900}
+.calendar-day-body{padding:0 12px 12px}
+.calendar-day-body[hidden]{display:none!important}
+.calendar-empty-note{color:#7891a8;font-size:12px;padding:0 15px 12px}
+@media print{
+  html,body{background:#fff!important;color:#111!important}
+  .report,.client-report,.card{background:#fff!important;color:#111!important;box-shadow:none!important;border-color:#ddd!important}
+}
 </style>
 </head>
 <body>
@@ -1025,6 +1105,38 @@ function apartmentRoutineIndicator(apartmentId){
   })?'<span class="routine-dot" title="Routine maintenance due"></span>':'';
 }
 
+
+function showAllInspections(){
+  document.getElementById('pageTitle').textContent='Inspections';
+  const arr=(data.inspections||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const openCount=arr.filter(x=>(x.status||'Open')!=='Completed').length;
+  const completedCount=arr.filter(x=>(x.status||'Open')==='Completed').length;
+  document.getElementById('view').innerHTML=
+    `<div class="hero">
+      <div class="today">Inspection Center</div>
+      <div class="row space">
+        <div><strong>${arr.length}</strong><div class="sub">total inspections</div></div>
+        <div style="text-align:right"><div class="badge">${openCount} open</div><div class="badge done" style="margin-top:6px">${completedCount} completed</div></div>
+      </div>
+    </div>
+    <div class="section-head"><h2>All Inspections</h2><span class="muted">${arr.length}</span></div>
+    ${arr.length?arr.map(ins=>{
+      const a=apt(ins.apartmentId),b=a?.buildingId?bld(a.buildingId):null;
+      const st=(ins.status||'Open');
+      return `<div class="card inspection-list-card ${st==='Completed'?'completed':'open'}" onclick="showInspection('${ins.id}')">
+        <div class="row space">
+          <div>
+            <div class="card-title">🔎 ${esc(a?.name||'Apartment')}</div>
+            <div class="meta">${esc(b?.name||'Standalone apartment')} • ${fmt(ins.date)}</div>
+            <div class="meta">${inspectionIssueCount(ins)} finding(s) • ${esc(st)}</div>
+          </div>
+          <span style="font-size:22px;color:#7cc1ff">›</span>
+        </div>
+      </div>`;
+    }).join(''):'<div class="empty">No inspections yet.</div>'}
+    <button class="btn soft" onclick="route='home';render()">← Back</button>`;
+}
+
 function renderHome(){
   let open=data.tasks.filter(t=>t.status!=='Completed'), due=open.filter(t=>t.date===today()), overdue=open.filter(t=>t.date&&t.date<today());
   let upcoming=open.filter(t=>t.date>today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
@@ -1041,6 +1153,9 @@ function renderHome(){
       <div class="summary-box summary-completed dashboard-link" tabindex="0" onclick="openDashboardTasks('Completed','','')"><b>${ms.completed}</b><span>Completed</span><div class="tap-hint">Tap to view</div></div>
       <div class="summary-box summary-costs dashboard-link" tabindex="0" onclick="openDashboardCosts()"><b>€${ms.cost.toFixed(0)}</b><span>Recorded costs</span><div class="tap-hint">Tap for summary</div></div>
       <div class="summary-box summary-quotes dashboard-link" tabindex="0" onclick="openDashboardQuotes()"><b>${ms.quotes}</b><span>Quotations</span><div class="tap-hint">Tap to view</div></div>
+      <div class="summary-box dashboard-inspection-card dashboard-link" tabindex="0" onclick="showAllInspections()">
+        <div class="dash-row"><div><div class="dash-icon">🔎</div><div class="dash-label">Inspections</div><div class="dash-sub">Tap to view all</div></div><div class="dash-count">${(data.inspections||[]).length}</div></div>
+      </div>
     </div>
     <div class="section-head urgent-head"><h2>Urgent Repairs</h2><button class="small-btn primary" onclick="chooseTemplate()">+ Quick Task</button></div>
     ${urgent.length?urgent.map(t=>taskCard(t).replace('class="card"','class="card urgent-card"')).join(''):'<div class="empty" style="background:#fff7f7;border-color:#f3cccc;color:#9f3434">No urgent repairs.</div>'}
@@ -1237,11 +1352,33 @@ function renderTasks(){
     <div class="row" style="overflow:auto;margin-bottom:12px">${chips}</div>
     ${body}`;
 }
+function toggleCalendarDay(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  const nowHidden=!el.hidden;
+  document.querySelectorAll('.calendar-day-body').forEach(x=>x.hidden=true);
+  if(!nowHidden)el.hidden=false;
+}
 function renderCalendar(){
   let groups={};
   data.tasks.filter(t=>t.date).sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>(groups[t.date]??=[]).push(t));
-  let body=Object.keys(groups).map(d=>'<div class="section-head"><h2>'+fmt(d)+(d===today()?' <span class="badge">Today</span>':'')+'</h2></div>'+groups[d].map(taskCard).join('')).join('');
-  document.getElementById('view').innerHTML='<button class="btn primary" onclick="newTask()">+ New task</button>'+(body||'<div class="empty" style="margin-top:14px">No dated tasks yet.</div>');
+  const dates=Object.keys(groups);
+  const body=dates.map((d,idx)=>{
+    const isToday=d===today(), id='calday_'+idx;
+    const open=isToday;
+    return `<div class="calendar-day-row">
+      <div class="calendar-day-head" onclick="toggleCalendarDay('${id}')">
+        <div><strong>${isToday?'Today • ':''}${fmt(d)}</strong></div>
+        <div class="row"><span class="calendar-day-count">${groups[d].length} task${groups[d].length===1?'':'s'}</span><span style="color:#8fcaff">⌄</span></div>
+      </div>
+      <div id="${id}" class="calendar-day-body" ${open?'':'hidden'}>
+        ${groups[d].map(taskCard).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('view').innerHTML=
+    `<div class="row" style="margin-bottom:12px"><button class="btn primary" onclick="newTask()">+ New task</button></div>
+     ${body||'<div class="empty">No dated tasks yet.</div>'}`;
 }
 
 function money(v){return '€'+Number(v||0).toFixed(2)}
