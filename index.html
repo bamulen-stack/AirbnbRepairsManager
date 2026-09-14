@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.34 Paint Target Fix</title>
+<title>Airbnb Repairs Manager v9.35 Dashboard Task Buttons</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -1312,6 +1312,56 @@ function showAllInspections(){
       </div>`;
     }).join(''):'<div class="empty">No inspections yet.</div>'}
     <button class="btn soft" onclick="route='home';render()">← Back</button>`;
+}
+
+
+function openDashboardOpen(){
+  window.taskFilter='Open';
+  window.taskSpecial='';
+  window.taskPri='';
+  window.taskQ='';
+  route='tasks';
+  render();
+}
+function openDashboardUrgent(){
+  window.taskFilter='Open';
+  window.taskSpecial='';
+  window.taskPri='Urgent';
+  window.taskQ='';
+  route='tasks';
+  render();
+}
+function openDashboardOverdue(){
+  window.taskFilter='Open';
+  window.taskSpecial='overdue';
+  window.taskPri='';
+  window.taskQ='';
+  route='tasks';
+  render();
+}
+function openDashboardToday(){
+  window.taskFilter='Open';
+  window.taskSpecial='today';
+  window.taskPri='';
+  window.taskQ='';
+  route='tasks';
+  render();
+}
+function openDashboardMonth(){
+  window.taskFilter='All';
+  window.taskSpecial='month';
+  window.taskPri='';
+  window.taskQ='';
+  route='tasks';
+  render();
+}
+function openDashboardCompleted(){
+  window.taskFilter='Completed';
+  window.taskSpecial='';
+  window.taskPri='';
+  window.taskQ='';
+  route='tasks';
+  render();
 }
 
 function renderHome(){
