@@ -759,7 +759,7 @@ async function initializeSafeData(){
       data=dbPayload.data;
       data.buildings=data.buildings||[];data.apartments=data.apartments||[];data.tasks=data.tasks||[];
       data.photos=data.photos||[];data.purchases=data.purchases||[];data.quotations=data.quotations||[];
-      data.favorites=data.favorites||[];data.inspections=data.inspections||[];
+      data.favorites=data.favorites||[];data.inspections=data.inspections||[];data.longTermApartments=data.longTermApartments||[];data.longTermTasks=data.longTermTasks||[];data.longTermInspections=data.longTermInspections||[];
       localStorage.setItem(KEY,JSON.stringify(data));
     }
     await saveToIndexedDB(safePayload());
@@ -768,11 +768,11 @@ async function initializeSafeData(){
 
 let data=loadData(), route='home', selected=null;
 
-function fresh(){return {buildings:[],apartments:[],tasks:[],photos:[],purchases:[],quotations:[],favorites:[],inspections:[],visitHistory:{buildings:{},apartments:{}}}}
+function fresh(){return {buildings:[],apartments:[],tasks:[],photos:[],purchases:[],quotations:[],favorites:[],inspections:[],longTermApartments:[],longTermTasks:[],longTermInspections:[],visitHistory:{buildings:{},apartments:{}}}}
 function loadData(){try{
       let d=JSON.parse(localStorage.getItem(KEY))||fresh();
       d.buildings=d.buildings||[];d.apartments=d.apartments||[];d.tasks=d.tasks||[];d.photos=d.photos||[];
-      d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];d.inspections=d.inspections||[];d.visitHistory=d.visitHistory||{buildings:{},apartments:{}};d.visitHistory.buildings=d.visitHistory.buildings||{};d.visitHistory.apartments=d.visitHistory.apartments||{};return ensureCodesImport(ensureMGVSeed(d))
+      d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];d.inspections=d.inspections||[];d.longTermApartments=d.longTermApartments||[];d.longTermTasks=d.longTermTasks||[];d.longTermInspections=d.longTermInspections||[];d.visitHistory=d.visitHistory||{buildings:{},apartments:{}};d.visitHistory.buildings=d.visitHistory.buildings||{};d.visitHistory.apartments=d.visitHistory.apartments||{};return ensureCodesImport(ensureMGVSeed(d))
     }catch(e){return ensureCodesImport(ensureMGVSeed(fresh()))}}
 function save(){
   localStorage.setItem(KEY,JSON.stringify(data));
@@ -1261,6 +1261,7 @@ function showRoutineMaintenance(apartmentId=''){
         ${filterBtn('favorites','⭐ Favorites')}
       </div>
     </div>
+    <div class="card"><div class="card-title">🏠 Long Term</div><p class="muted">Separate long-term apartments with their own Tasks and Inspections. Airbnb inspections remain completely separate.</p><button class="btn primary" onclick="showLongTerm()">Open Long Term</button></div>
     <div class="card"><div class="card-title">🔧 Routine Maintenance</div><div class="meta">Grouped by building. Search or filter to find the apartment quickly.</div></div>
     ${groupHtml||'<div class="empty">No apartments match the current search/filter.</div>'}
     <button class="btn soft" onclick="route='home';render()">← Back</button>`;
@@ -1409,6 +1410,7 @@ function renderHome(){
       ${kpi('purple','▤',quotes,'Quotations','openDashboardQuotes()')}
       ${kpi('blue','🔎',inspections.length,'Inspections','showAllInspections()')}
       ${kpi('','🏢',properties,'Properties',"route='properties';render()")}
+      ${kpi('blue','🏠',(data.longTermApartments||[]).length,'Long Term','showLongTerm()')}
     </div>
 
     <div class="ceo-section">
@@ -1704,6 +1706,41 @@ function editQuotation(i){
   let q=data.quotations.find(x=>x.id===i);
   openSheet('Edit Quotation',quotationForm(q),v=>Object.assign(q,v,{items:collectQuoteItems()}))
 }
+
+
+function ltApt(i){return (data.longTermApartments||[]).find(x=>x.id===i)}
+function ltTask(i){return (data.longTermTasks||[]).find(x=>x.id===i)}
+function ltInspection(i){return (data.longTermInspections||[]).find(x=>x.id===i)}
+function showLongTerm(){
+  data.longTermApartments=data.longTermApartments||[];data.longTermTasks=data.longTermTasks||[];data.longTermInspections=data.longTermInspections||[];
+  document.getElementById('pageTitle').textContent='Long Term';
+  const a=data.longTermApartments;
+  document.getElementById('view').innerHTML=`<div class="hero"><div class="today">🏠 Long Term</div><div class="sub">Long-term apartments • separate Tasks & Inspections</div></div>
+  <button class="btn primary" style="width:100%;margin-bottom:14px" onclick="newLongTermApartment()">+ Add Apartment</button>
+  ${a.length?a.map(x=>{const ot=data.longTermTasks.filter(t=>t.apartmentId===x.id&&t.status!=='Completed').length,ins=data.longTermInspections.filter(i=>i.apartmentId===x.id).length;return `<div class="card" onclick="showLongTermApartment('${x.id}')"><div class="row space"><div><div class="card-title">🏠 ${esc(x.name)}</div><div class="meta">${esc(x.address||'No address')}${x.floor?' • Floor '+esc(x.floor):''}</div><div class="meta">${ot} open task(s) • ${ins} inspection(s)</div></div><span style="font-size:22px;color:#7cc1ff">›</span></div></div>`}).join(''):'<div class="empty">No Long Term apartments yet.</div>'}
+  <button class="btn soft" onclick="route='home';render()">← Dashboard</button>`;
+}
+function longTermApartmentForm(a={}){return `<div class="form"><label>Apartment name<input name="name" required value="${esc(a.name||'')}"></label><label>Address<input name="address" value="${esc(a.address||'')}"></label><div class="form two"><label>Floor<input name="floor" value="${esc(a.floor||'')}"></label><label>Access / Lockbox code<input name="accessCode" value="${esc(a.accessCode||'')}"></label></div><label>Tenant / Contact<input name="contact" value="${esc(a.contact||'')}"></label><label>Notes<textarea name="notes">${esc(a.notes||'')}</textarea></label></div>`}
+function newLongTermApartment(){openSheet('New Long Term Apartment',longTermApartmentForm(),v=>{data.longTermApartments.push({id:id(),createdAt:Date.now(),...v});setTimeout(showLongTerm,0)})}
+function editLongTermApartment(i){let a=ltApt(i);if(!a)return;openSheet('Edit Long Term Apartment',longTermApartmentForm(a),v=>Object.assign(a,v))}
+function deleteLongTermApartment(i){let a=ltApt(i);if(!a||!confirm('Delete this Long Term apartment and its Tasks / Inspections?'))return;data.longTermApartments=data.longTermApartments.filter(x=>x.id!==i);data.longTermTasks=data.longTermTasks.filter(x=>x.apartmentId!==i);data.longTermInspections=data.longTermInspections.filter(x=>x.apartmentId!==i);save();showLongTerm()}
+function showLongTermApartment(i){let a=ltApt(i);if(!a)return;const tasks=data.longTermTasks.filter(x=>x.apartmentId===i).sort((a,b)=>(b.date||'').localeCompare(a.date||''));const ins=data.longTermInspections.filter(x=>x.apartmentId===i).sort((a,b)=>(b.date||'').localeCompare(a.date||''));document.getElementById('pageTitle').textContent='Long Term Apartment';document.getElementById('view').innerHTML=`
+<div class="card"><div class="row space"><div><div class="card-title">🏠 ${esc(a.name)}</div><div class="meta">${esc(a.address||'')}${a.floor?' • Floor '+esc(a.floor):''}</div>${a.accessCode?`<div class="meta">🔐 ${esc(a.accessCode)}</div>`:''}${a.contact?`<div class="meta">👤 ${esc(a.contact)}</div>`:''}</div><button class="small-btn soft" onclick="editLongTermApartment('${i}')">Edit</button></div>${a.notes?`<p>${esc(a.notes)}</p>`:''}</div>
+<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="btn primary" onclick="newLongTermTask('${i}')">+ Task</button><button class="btn primary" onclick="newLongTermInspection('${i}')">🔎 Inspection</button></div>
+<div class="section-head"><h2>Tasks</h2><span class="muted">${tasks.length}</span></div>${tasks.length?tasks.map(t=>`<div class="card" onclick="showLongTermTask('${t.id}')"><div class="row space"><div><div class="card-title">${esc(t.title)}</div><div class="meta">${fmt(t.date)} • ${esc(t.status||'Pending')} • ${esc(t.priority||'Normal')}</div></div><span>›</span></div></div>`).join(''):'<div class="empty">No tasks yet.</div>'}
+<div class="section-head"><h2>Inspections</h2><span class="muted">${ins.length}</span></div>${ins.length?ins.map(x=>`<div class="card" onclick="showLongTermInspection('${x.id}')"><div class="row space"><div><div class="card-title">🔎 Inspection • ${fmt(x.date)}</div><div class="meta">${(x.issues||[]).length} finding(s) • ${esc(x.status||'Open')}</div></div><span>›</span></div></div>`).join(''):'<div class="empty">No inspections yet.</div>'}
+<div class="row" style="flex-wrap:wrap"><button class="btn soft" onclick="showLongTerm()">← Long Term</button><button class="btn danger" onclick="deleteLongTermApartment('${i}')">Delete Apartment</button></div>`}
+function longTermTaskForm(t={}){let opts=a=>a.map(x=>`<option ${t[x[0]]===x[1]?'selected':''}>${x[1]}</option>`).join('');return `<div class="form"><label>Work title<input name="title" required value="${esc(t.title||'')}"></label><div class="form two"><label>Date<input type="date" name="date" value="${esc(t.date||today())}"></label><label>Priority<select name="priority">${[['priority','Normal'],['priority','High'],['priority','Urgent']].map(x=>`<option ${t.priority===x[1]?'selected':''}>${x[1]}</option>`).join('')}</select></label></div><label>Status<select name="status">${['Pending','In Progress','Completed'].map(x=>`<option ${t.status===x?'selected':''}>${x}</option>`).join('')}</select></label><label>Technician / Assigned to<input name="technician" value="${esc(t.technician||'')}"></label><label>Description<textarea name="description">${esc(t.description||'')}</textarea></label><label>Notes<textarea name="notes">${esc(t.notes||'')}</textarea></label></div>`}
+function newLongTermTask(aid){openSheet('New Long Term Task',longTermTaskForm(),v=>{data.longTermTasks.push({id:id(),apartmentId:aid,createdAt:Date.now(),...v});setTimeout(()=>showLongTermApartment(aid),0)})}
+function showLongTermTask(i){let t=ltTask(i),a=t&&ltApt(t.apartmentId);if(!t||!a)return;document.getElementById('pageTitle').textContent='Long Term Task';document.getElementById('view').innerHTML=`<div class="card"><div class="card-title">${esc(t.title)}</div><div class="meta">🏠 ${esc(a.name)} • ${fmt(t.date)}</div><p><b>Status:</b> ${esc(t.status||'Pending')} &nbsp; <b>Priority:</b> ${esc(t.priority||'Normal')}</p>${t.technician?`<p><b>Technician:</b> ${esc(t.technician)}</p>`:''}${t.description?`<p>${esc(t.description)}</p>`:''}${t.notes?`<p class="muted">${esc(t.notes)}</p>`:''}</div><div class="row"><button class="btn soft" onclick="showLongTermApartment('${a.id}')">← Back</button><button class="btn primary" onclick="editLongTermTask('${i}')">Edit</button><button class="btn danger" onclick="deleteLongTermTask('${i}')">Delete</button></div>`}
+function editLongTermTask(i){let t=ltTask(i);if(!t)return;openSheet('Edit Long Term Task',longTermTaskForm(t),v=>Object.assign(t,v))}
+function deleteLongTermTask(i){let t=ltTask(i);if(!t||!confirm('Delete this Long Term task?'))return;let aid=t.apartmentId;data.longTermTasks=data.longTermTasks.filter(x=>x.id!==i);save();showLongTermApartment(aid)}
+function newLongTermInspection(aid){let ins={id:id(),apartmentId:aid,date:today(),createdAt:Date.now(),status:'Open',issues:[]};data.longTermInspections.push(ins);save();showLongTermInspection(ins.id)}
+function addLongTermInspectionIssue(i){openSheet('Add Long Term Inspection Finding',`<div class="field"><label>Problem / Finding</label><input name="title" required></div><div class="field"><label>Notes</label><textarea name="note"></textarea></div>`,v=>{let ins=ltInspection(i);if(ins)ins.issues.push({id:id(),title:v.title,note:v.note||'',createdAt:Date.now()})})}
+function showLongTermInspection(i){let ins=ltInspection(i),a=ins&&ltApt(ins.apartmentId);if(!ins||!a)return;document.getElementById('pageTitle').textContent='Long Term Inspection';document.getElementById('view').innerHTML=`<div class="card"><div class="card-title">🔎 ${esc(a.name)}</div><div class="meta">${fmt(ins.date)} • ${esc(ins.status)}</div></div><button class="btn primary" style="width:100%;margin-bottom:14px" onclick="addLongTermInspectionIssue('${i}')">+ Add Finding</button>${(ins.issues||[]).length?ins.issues.map(x=>`<div class="card" style="border-left:5px solid #dc2626"><div class="card-title">⚠ ${esc(x.title)}</div>${x.note?`<div class="meta">${esc(x.note)}</div>`:''}<button class="small-btn soft" style="margin-top:10px" onclick="createLongTermTaskFromFinding('${i}','${x.id}')">+ Create Task</button></div>`).join(''):'<div class="empty">No findings yet.</div>'}<div class="row" style="flex-wrap:wrap"><button class="btn soft" onclick="showLongTermApartment('${a.id}')">← Apartment</button>${ins.status!=='Completed'?`<button class="btn primary" onclick="completeLongTermInspection('${i}')">Complete</button>`:''}<button class="btn danger" onclick="deleteLongTermInspection('${i}')">Delete</button></div>`}
+function createLongTermTaskFromFinding(i,fid){let ins=ltInspection(i),f=ins?.issues?.find(x=>x.id===fid);if(!ins||!f)return;data.longTermTasks.push({id:id(),apartmentId:ins.apartmentId,title:f.title,date:today(),status:'Pending',priority:'Normal',description:'Found during Long Term inspection on '+fmt(ins.date)+(f.note?'. '+f.note:''),createdAt:Date.now()});save();alert('Long Term task created.');showLongTermInspection(i)}
+function completeLongTermInspection(i){let ins=ltInspection(i);if(!ins)return;ins.status='Completed';ins.completedAt=Date.now();save();showLongTermInspection(i)}
+function deleteLongTermInspection(i){let ins=ltInspection(i);if(!ins||!confirm('Delete this Long Term inspection?'))return;let aid=ins.apartmentId;data.longTermInspections=data.longTermInspections.filter(x=>x.id!==i);save();showLongTermApartment(aid)}
 
 function renderMore(){
   let ms=monthlyStats();

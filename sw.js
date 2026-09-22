@@ -1,4 +1,4 @@
-const CACHE='airbnb-repairs-v9-35-dashboard-task-buttons';
+const CACHE='airbnb-repairs-v9-36-long-term';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./dashboard-cover.png'];
 
 self.addEventListener('install',event=>{
