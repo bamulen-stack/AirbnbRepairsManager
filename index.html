@@ -1440,6 +1440,22 @@ function renderHome(){
       </div>
     </div>`;
 }
+
+let propertySearchTimer=null;
+function schedulePropertySearch(input){
+  window.propQ=input?.value||'';
+  clearTimeout(propertySearchTimer);
+  propertySearchTimer=setTimeout(()=>{
+    const value=window.propQ;
+    renderProperties();
+    const el=document.getElementById('propertySearchInput');
+    if(el){
+      el.focus();
+      el.value=value;
+      try{el.setSelectionRange(value.length,value.length)}catch(e){}
+    }
+  },180);
+}
 function renderProperties(){
   let q=(window.propQ||'').trim().toLowerCase(), floor=window.propFloor||'', mode=window.propMode||'All';
   let floors=[...new Set(data.apartments.map(a=>String(a.floor||'')).filter(Boolean))].sort();
