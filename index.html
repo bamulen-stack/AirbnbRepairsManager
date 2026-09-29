@@ -1085,6 +1085,53 @@ function shiftWorkHoursReport(n){
   if(whReportMode==="week")d.setDate(d.getDate()+7*n); else d.setMonth(d.getMonth()+n);
   whReportDate=whIso(d);renderWorkHoursReport();
 }
+
+async function buildWorkHoursPdf(){
+  let start,end,label;
+  if(whReportMode==="week"){start=whMonday(whReportDate);end=whAddDays(start,6);label=fmt(start)+" - "+fmt(end)}
+  else{let month=whReportDate.slice(0,7);start=month+"-01";end=whMonthLast(month);label=new Date(start+"T12:00:00").toLocaleDateString(undefined,{month:"long",year:"numeric"})}
+  let rows=(data.workHours||[]).filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.worker||"").localeCompare(b.worker||""));
+  let by={};rows.forEach(x=>{let n=x.worker||"Unnamed";by[n]=by[n]||{h:0,o:0,days:new Set};by[n].h+=whHours(x);by[n].o+=Number(x.overtime||0);by[n].days.add(x.date)});
+  let people=Object.entries(by).sort((a,b)=>a[0].localeCompare(b[0]));
+  let total=rows.reduce((s,x)=>s+whHours(x),0),ot=rows.reduce((s,x)=>s+Number(x.overtime||0),0);
+  const W=1240,H=1754,M=80,C=W-M*2,jpegs=[];
+  function page(){
+    let c=document.createElement("canvas");c.width=W;c.height=H;let x=c.getContext("2d");
+    x.fillStyle="#fff";x.fillRect(0,0,W,H);x.fillStyle="#0d2340";x.fillRect(0,0,W,190);
+    x.fillStyle="#fff";x.font="bold 42px Arial";x.fillText("MGV • Staff Work Hours",M,75);
+    x.font="24px Arial";x.fillText(whReportMode==="week"?"Weekly Report":"Monthly Report",M,118);
+    x.font="bold 27px Arial";x.fillText(label,M,160);
+    return {c,x,y:245};
+  }
+  function finish(pg){jpegs.push(pg.c.toDataURL("image/jpeg",0.92))}
+  function ensure(pg,h){if(pg.y+h>H-90){finish(pg);pg=page()}return pg}
+  function text(pg,s,x,y,font="22px Arial",color="#13233a"){pg.x.fillStyle=color;pg.x.font=font;pg.x.fillText(String(s),x,y)}
+  let pg=page();
+  text(pg,"Total Hours",M,pg.y,"20px Arial","#66758a");text(pg,total.toFixed(1)+" h",M,pg.y+42,"bold 34px Arial");
+  text(pg,"Overtime",M+360,pg.y,"20px Arial","#66758a");text(pg,ot.toFixed(1)+" h",M+360,pg.y+42,"bold 34px Arial");pg.y+=100;
+  text(pg,"Summary by Worker",M,pg.y,"bold 27px Arial");pg.y+=45;
+  if(!people.length){text(pg,"No entries for this period.",M,pg.y);pg.y+=45}
+  else people.forEach(([n,v])=>{pg=ensure(pg,55);text(pg,n,M,pg.y,"bold 21px Arial");text(pg,v.days.size+" days",M+500,pg.y);text(pg,v.h.toFixed(1)+" h",M+700,pg.y);text(pg,"OT "+v.o.toFixed(1)+" h",M+880,pg.y);pg.y+=48});
+  pg.y+=25;text(pg,"Detailed Entries",M,pg.y,"bold 27px Arial");pg.y+=48;
+  rows.forEach(r=>{pg=ensure(pg,88);text(pg,fmt(r.date),M,pg.y,"bold 20px Arial");text(pg,r.worker||"",M+190,pg.y,"bold 20px Arial");text(pg,(r.start||"")+(r.start||r.end?" - ":"")+(r.end||""),M+500,pg.y);text(pg,whHours(r).toFixed(1)+" h",M+720,pg.y);text(pg,"OT "+Number(r.overtime||0).toFixed(1),M+850,pg.y);pg.y+=30;if(r.property)text(pg,r.property,M+190,pg.y,"18px Arial","#66758a");if(r.notes)text(pg,r.notes.slice(0,75),M+500,pg.y,"17px Arial","#66758a");pg.y+=48});
+  finish(pg);
+  return {bytes:pdfAddJpegPages(jpegs),start};
+}
+async function saveWorkHoursPdf(){
+  const btn=document.getElementById("whSavePdfBtn");
+  try{
+    if(btn){btn.disabled=true;btn.textContent="Creating PDF..."}
+    const result=await buildWorkHoursPdf(),blob=new Blob([result.bytes],{type:"application/pdf"});
+    const fileName="MGV_Work_Hours_"+(whReportMode==="week"?result.start:result.start.slice(0,7))+".pdf";
+    const file=new File([blob],fileName,{type:"application/pdf"});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({title:"MGV Work Hours",files:[file]});return}catch(e){if(e&&e.name==="AbortError")return}
+    }
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }catch(e){console.error(e);alert("Could not create the Work Hours PDF.")}
+  finally{if(btn){btn.disabled=false;btn.textContent="📤 Save / Share PDF"}}
+}
+
 function renderWorkHoursReport(){
   document.getElementById("pageTitle").textContent=whReportMode==="week"?"Weekly Work Hours":"Monthly Work Hours";
   let start,end,label;
@@ -1110,7 +1157,7 @@ function renderWorkHoursReport(){
   <div class="row no-print" style="gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn soft" onclick="shiftWorkHoursReport(-1)">◀ Previous</button>
     <button class="btn soft" onclick="shiftWorkHoursReport(1)">Next ▶</button>
-    <button class="btn primary" onclick="window.print()">📄 Save / Print PDF</button>
+    <button id="whSavePdfBtn" type="button" class="btn primary" onclick="saveWorkHoursPdf()">📤 Save / Share PDF</button><button type="button" class="btn soft" onclick="window.print()">🖨️ Print</button>
     <button class="btn soft" onclick="renderWorkHours()">← Work Hours</button>
   </div>`;
 }
