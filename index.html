@@ -770,11 +770,11 @@ async function initializeSafeData(){
 
 let data=loadData(), route='home', selected=null;
 
-function fresh(){return {buildings:[],apartments:[],tasks:[],photos:[],purchases:[],quotations:[],favorites:[],inspections:[],longTermApartments:[],longTermTasks:[],longTermInspections:[],longTermQuotations:[],longTermMaterials:[],visitHistory:{buildings:{},apartments:{}}}}
+function fresh(){return {buildings:[],apartments:[],tasks:[],photos:[],purchases:[],quotations:[],favorites:[],inspections:[],longTermApartments:[],longTermTasks:[],longTermInspections:[],longTermQuotations:[],longTermMaterials:[],workHours:[],workers:[],visitHistory:{buildings:{},apartments:{}}}}
 function loadData(){try{
       let d=JSON.parse(localStorage.getItem(KEY))||fresh();
       d.buildings=d.buildings||[];d.apartments=d.apartments||[];d.tasks=d.tasks||[];d.photos=d.photos||[];
-      d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];d.inspections=d.inspections||[];d.longTermApartments=d.longTermApartments||[];d.longTermTasks=d.longTermTasks||[];d.longTermInspections=d.longTermInspections||[];d.longTermQuotations=d.longTermQuotations||[];d.longTermMaterials=d.longTermMaterials||[];d.visitHistory=d.visitHistory||{buildings:{},apartments:{}};d.visitHistory.buildings=d.visitHistory.buildings||{};d.visitHistory.apartments=d.visitHistory.apartments||{};return ensureCodesImport(ensureMGVSeed(d))
+      d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];d.inspections=d.inspections||[];d.longTermApartments=d.longTermApartments||[];d.longTermTasks=d.longTermTasks||[];d.longTermInspections=d.longTermInspections||[];d.longTermQuotations=d.longTermQuotations||[];d.longTermMaterials=d.longTermMaterials||[];d.workHours=d.workHours||[];d.workers=d.workers||[];d.visitHistory=d.visitHistory||{buildings:{},apartments:{}};d.visitHistory.buildings=d.visitHistory.buildings||{};d.visitHistory.apartments=d.visitHistory.apartments||{};return ensureCodesImport(ensureMGVSeed(d))
     }catch(e){return ensureCodesImport(ensureMGVSeed(fresh()))}}
 function save(){
   localStorage.setItem(KEY,JSON.stringify(data));
@@ -1049,7 +1049,7 @@ function whWeekKey(date){
   d.setDate(d.getDate()-day);
   return d.toISOString().slice(0,10);
 }
-function openWorkHours(){route="workhours";render()}
+function openWorkHours(){route="workhours";renderWorkHours()}
 function renderWorkHours(){
   document.getElementById("pageTitle").textContent="Work Hours";
   let rows=(data.workHours||[]).filter(x=>(x.date||"").slice(0,7)===whMonth).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
@@ -1467,7 +1467,7 @@ function renderHome(){
       ${kpi('blue','🔎',inspections.length,'Inspections','showAllInspections()')}
       ${kpi('','🏢',properties,'Properties',"route='properties';render()")}
       ${kpi('blue','🏠',(data.longTermApartments||[]).length,'Long Term','showLongTerm()')}
-      ${kpi('blue','👷',(data.workHours||[]).filter(x=>(x.date||'').startsWith(month)).reduce((s,x)=>s+whHours(x),0).toFixed(1)+'h','Work Hours','openWorkHours()')}
+      ${kpi('blue','👷',(data.workHours||[]).filter(x=>(x.date||'').startsWith(month)).reduce((s,x)=>s+whHours(x),0).toFixed(1)+'h','Work Hours',"route='workhours';renderWorkHours()")}
     </div>
 
     <div class="ceo-section">
