@@ -1864,7 +1864,11 @@ function deleteLongTermInspection(i){let ins=ltInspection(i);if(!ins||!confirm('
 function renderMore(){
   let ms=monthlyStats();
   document.getElementById('view').innerHTML=
-    `<div class="safe-banner"><b>🛡 Safe Data</b><div>Your working data is mirrored in IndexedDB. For protection against Chrome “Clear site data”, keep an external JSON backup outside the browser.</div>
+    `<div class="safe-banner"><b>🛡 Safe Data</b><div class="stat-card" onclick="openWorkHours()" style="cursor:pointer">
+          <div class="stat-icon">👷</div>
+          <div class="stat-value">${(data.workHours||[]).filter(x=>(x.date||'').slice(0,7)===today().slice(0,7)).reduce((s,x)=>s+whHours(x),0).toFixed(1)}h</div>
+          <div class="stat-label">Work Hours</div>
+        </div><div>Your working data is mirrored in IndexedDB. For protection against Chrome “Clear site data”, keep an external JSON backup outside the browser.</div>
       <div class="safe-actions">
         <button class="btn primary" onclick="chooseSafetyBackupFile()">Connect Auto Backup File</button>
         <button class="btn soft" onclick="downloadSafetyBackup()">Download Backup</button>
