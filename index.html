@@ -1059,12 +1059,62 @@ function renderWorkHours(){
   document.getElementById("view").innerHTML=`
   <div class="card"><div class="row space"><div><div class="card-title">👷 Staff Work Calendar</div><div class="meta">Separate from Tasks & Inspections</div></div><button class="small-btn primary" onclick="editWorkHour()">+ Entry</button></div>
   <div class="field" style="margin-top:12px"><label>Month</label><input id="whMonth" type="month" value="${whMonth}" onchange="whMonth=this.value;renderWorkHours()"></div>
+  <div class="row no-print" style="gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn soft" onclick="openWorkHoursReport('week')">📅 Weekly Report</button><button class="btn soft" onclick="openWorkHoursReport('month')">🗓️ Monthly Report</button></div>
   <div class="row" style="gap:8px"><div class="card" style="flex:1;margin:0"><div class="meta">Total Hours</div><div class="card-title">${total.toFixed(1)} h</div></div><div class="card" style="flex:1;margin:0"><div class="meta">Overtime</div><div class="card-title">${ot.toFixed(1)} h</div></div></div></div>
   <div class="section-head"><h2>Monthly Summary</h2><span class="muted">${people.length} workers</span></div>
   ${people.length?people.map(([n,v])=>`<div class="card"><div class="row space"><b>${esc(n)}</b><b>${v.h.toFixed(1)} h</b></div><div class="meta">Overtime: ${v.o.toFixed(1)} h</div></div>`).join(""):'<div class="empty">No work-hour entries this month.</div>'}
   <div class="section-head"><h2>Entries</h2><span class="muted">${rows.length}</span></div>
   ${rows.length?rows.map(x=>`<div class="card" onclick="editWorkHour('${x.id}')"><div class="row space"><div><b>${esc(x.worker||"")}</b><div class="meta">${fmt(x.date)}${x.property?` • ${esc(x.property)}`:""}</div></div><div style="text-align:right"><b>${whHours(x).toFixed(1)} h</b>${Number(x.overtime||0)?`<div class="meta">+${Number(x.overtime).toFixed(1)} OT</div>`:""}</div></div>${x.start||x.end?`<div class="meta">${esc(x.start||"")} – ${esc(x.end||"")}</div>`:""}${x.notes?`<div class="meta">${esc(x.notes)}</div>`:""}</div>`).join(""):'<div class="empty">Tap + Entry to add staff hours.</div>'}`;
 }
+
+let whReportMode="week",whReportDate=today();
+function whIso(d){return d.toISOString().slice(0,10)}
+function whMonday(date){
+  let d=new Date(date+"T12:00:00"),day=(d.getDay()+6)%7;
+  d.setDate(d.getDate()-day); return whIso(d);
+}
+function whAddDays(date,n){let d=new Date(date+"T12:00:00");d.setDate(d.getDate()+n);return whIso(d)}
+function whMonthLast(month){let [y,m]=month.split("-").map(Number);return whIso(new Date(y,m,0,12))}
+function openWorkHoursReport(mode){
+  whReportMode=mode;
+  whReportDate=mode==="month"?(whMonth+"-01"):today();
+  renderWorkHoursReport();
+}
+function shiftWorkHoursReport(n){
+  let d=new Date(whReportDate+"T12:00:00");
+  if(whReportMode==="week")d.setDate(d.getDate()+7*n); else d.setMonth(d.getMonth()+n);
+  whReportDate=whIso(d);renderWorkHoursReport();
+}
+function renderWorkHoursReport(){
+  document.getElementById("pageTitle").textContent=whReportMode==="week"?"Weekly Work Hours":"Monthly Work Hours";
+  let start,end,label;
+  if(whReportMode==="week"){
+    start=whMonday(whReportDate);end=whAddDays(start,6);
+    label=fmt(start)+" – "+fmt(end);
+  }else{
+    let month=whReportDate.slice(0,7);start=month+"-01";end=whMonthLast(month);
+    let d=new Date(start+"T12:00:00");label=d.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+  }
+  let rows=(data.workHours||[]).filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.worker||"").localeCompare(b.worker||""));
+  let by={};rows.forEach(x=>{let n=x.worker||"Unnamed";by[n]=by[n]||{h:0,o:0,days:new Set};by[n].h+=whHours(x);by[n].o+=Number(x.overtime||0);by[n].days.add(x.date)});
+  let people=Object.entries(by).sort((a,b)=>a[0].localeCompare(b[0]));
+  let total=rows.reduce((s,x)=>s+whHours(x),0),ot=rows.reduce((s,x)=>s+Number(x.overtime||0),0);
+  document.getElementById("view").innerHTML=`
+  <div class="report">
+    <div style="text-align:center;margin-bottom:18px"><h2 style="margin:0">MGV • Staff Work Hours</h2><div class="muted">${whReportMode==="week"?"Weekly Report":"Monthly Report"}</div><h3>${esc(label)}</h3></div>
+    <div class="row" style="gap:8px;margin-bottom:14px"><div class="card" style="flex:1;margin:0"><div class="meta">Total Hours</div><div class="card-title">${total.toFixed(1)} h</div></div><div class="card" style="flex:1;margin:0"><div class="meta">Overtime</div><div class="card-title">${ot.toFixed(1)} h</div></div></div>
+    <h3>Summary by Worker</h3>
+    ${people.length?`<table class="report-table"><tr><th>Worker</th><th>Days</th><th>Hours</th><th>OT</th></tr>${people.map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.days.size}</td><td>${v.h.toFixed(1)}</td><td>${v.o.toFixed(1)}</td></tr>`).join("")}</table>`:'<div class="empty">No entries for this period.</div>'}
+    ${rows.length?`<h3 style="margin-top:20px">Detailed Entries</h3><table class="report-table"><tr><th>Date</th><th>Worker</th><th>Time</th><th>Hours</th><th>OT</th><th>Property / Project</th></tr>${rows.map(x=>`<tr><td>${fmt(x.date)}</td><td>${esc(x.worker||"")}</td><td>${esc((x.start||"")+(x.start||x.end?" – ":"")+(x.end||""))}</td><td>${whHours(x).toFixed(1)}</td><td>${Number(x.overtime||0).toFixed(1)}</td><td>${esc(x.property||"")}${x.notes?`<div class="meta">${esc(x.notes)}</div>`:""}</td></tr>`).join("")}</table>`:""}
+  </div>
+  <div class="row no-print" style="gap:8px;flex-wrap:wrap;margin-top:12px">
+    <button class="btn soft" onclick="shiftWorkHoursReport(-1)">◀ Previous</button>
+    <button class="btn soft" onclick="shiftWorkHoursReport(1)">Next ▶</button>
+    <button class="btn primary" onclick="window.print()">📄 Save / Print PDF</button>
+    <button class="btn soft" onclick="renderWorkHours()">← Work Hours</button>
+  </div>`;
+}
+
 function editWorkHour(i=""){
   let x=(data.workHours||[]).find(v=>v.id===i)||{},names=[...new Set([...(data.workers||[]),(data.workHours||[]).map(v=>v.worker).filter(Boolean)].flat())];
   document.getElementById("pageTitle").textContent=i?"Edit Work Hours":"Add Work Hours";
