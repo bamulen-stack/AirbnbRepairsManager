@@ -2019,9 +2019,8 @@ function showLongTermQuotation(qid){
   <div class="section-head"><h2>Detailed Items</h2></div>
   ${lines.length?lines.map(l=>`<div class="card"><div class="row space"><div><div class="card-title">${esc(l.name||'Item')}</div><div class="meta">${Number(l.qty||1)} ${esc(l.unit||'')} • ${esc(l.category||'')}</div>${l.note?`<div class="meta">${esc(l.note)}</div>`:''}</div><b>${money(Number(l.labor||0)+Number(l.materials||0))}</b></div><div class="meta" style="margin-top:8px">Labour: ${money(l.labor||0)}${Number(l.materials||0)>0?` • Materials: ${money(l.materials||0)}`:''}</div>${(l.materialDetails||[]).length?`<div class="meta" style="margin-top:5px">🧱 ${(l.materialDetails||[]).map(m=>`${esc(m.name)} × ${Number(m.qty||1)}`).join(' • ')}</div>`:''}</div>`).join(''):(q.items||[]).map(x=>`<div class="card"><div class="row space"><div><div class="card-title">${esc(x.description||'Item')}</div><div class="meta">${Number(x.qty||1)} × ${money(Number(x.price||0))}</div></div><b>${money(Number(x.qty||1)*Number(x.price||0))}</b></div></div>`).join('')}
   <div class="card">
-    ${lines.length?`<div class="row space"><span>Items Labour</span><b>${money(itemLabor)}</b></div>`:''}
+    <div class="row space"><span>Labour</span><b>${money(laborTotal)}</b></div>
     ${visitAdjustment>0.001?`<div class="row space" style="margin-top:8px"><span>Minimum visit adjustment</span><b>+${money(visitAdjustment)}</b></div>`:''}
-    <div class="row space" style="margin-top:8px"><span>Labour Total</span><b>${money(laborTotal)}</b></div>
     <div class="row space" style="margin-top:8px"><span>Materials</span><b>${money(materialsTotal)}</b></div>
     <div class="row space" style="margin-top:8px"><span>Net</span><b>${money(net)}</b></div>
     <div class="row space" style="margin-top:8px"><span>VAT ${Number(q.vat||0).toFixed(0)}%</span><b>${money(vatAmount)}</b></div>
