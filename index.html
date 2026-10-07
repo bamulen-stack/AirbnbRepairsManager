@@ -1962,7 +1962,7 @@ function importMGVLongTermQuote(){
     let items=(q.lines||[]).map(l=>({description:l.name,qty:Number(l.qty||1),price:(Number(l.labor||0)+Number(l.materials||0))/Math.max(1,Number(l.qty||1))}));
     let itemSubtotal=items.reduce((s,x)=>s+Number(x.qty||1)*Number(x.price||0),0);
     if(Number(q.net||0)>itemSubtotal+0.005)items.push({description:'Minimum visit / service charge',qty:1,price:Number(q.net)-itemSubtotal});
-    data.longTermQuotations.push({id:id(),externalId:q.id,taskId:tr.taskId||'',apartmentId:tr.apartmentId,number:q.quoteNo||'',date:q.date||today(),status:'Sent',vat:Number(q.net||0)?(Number(q.vat||0)/Number(q.net||0)*100):24,title:'MGV Pricing — '+((q.lines||[]).map(x=>x.name).join(', ')||'Long Term Repair / Renovation'),items,notes:'Imported automatically from MGV Pricing — Long Term'});
+    data.longTermQuotations.push({id:id(),externalId:q.id,taskId:tr.taskId||'',apartmentId:tr.apartmentId,number:q.quoteNo||'',date:q.date||today(),status:'Sent',vat:Number(q.net||0)?(Number(q.vat||0)/Number(q.net||0)*100):24,title:'MGV Pricing — '+((q.lines||[]).map(x=>x.name).join(', ')||'Long Term Repair / Renovation'),items,client:q.client||'',clientVat:q.clientVat||'',address:q.address||'',validity:q.validity||'',delivery:q.delivery||'',labor:Number(q.labor||0),materials:Number(q.mats||0),net:Number(q.net||0),vatAmount:Number(q.vat||0),total:Number(q.total||0),sourceLines:(q.lines||[]).map(x=>({...x})),notes:'Imported automatically from MGV Pricing — Long Term'});
     save();localStorage.removeItem('mgv_longterm_quote_transfer');localStorage.removeItem('mgv_longterm_pending_context');
     return {apartmentId:tr.apartmentId,taskId:tr.taskId||''};
   }catch(e){return false}
@@ -1987,9 +1987,33 @@ function showLongTermMaterials(aid){
   document.getElementById('view').innerHTML=`<div class="card"><div class="card-title">📦 Materials • ${esc(a.name)}</div><div class="meta">Total ${money(ms.reduce((s,m)=>s+Number(m.qty||1)*Number(m.unitPrice||0),0))}</div></div>${ms.length?ms.map(m=>{let t=ltTask(m.taskId);return `<div class="card lt-material" ${t?`onclick="showLongTermTask('${t.id}')" style="cursor:pointer"`:''}><div class="row space"><div><div class="card-title">${esc(m.name)}</div><div class="meta">${m.qty} ${esc(m.unit||'')} × ${money(m.unitPrice)}${m.date?' • '+fmt(m.date):''}</div>${t?`<div class="meta">Task: ${esc(t.title)} ›</div>`:''}</div><b>${money(Number(m.qty||1)*Number(m.unitPrice||0))}</b></div></div>`}).join(''):'<div class="empty">No materials yet.</div>'}<button class="btn soft" onclick="showLongTermApartment('${aid}')">← Apartment</button>`;
 }
 function showLongTermQuotation(qid){
-  let q=(data.longTermQuotations||[]).find(x=>x.id===qid);if(!q)return;let a=ltApt(q.apartmentId),t=q.taskId?ltTask(q.taskId):null;
+  let q=(data.longTermQuotations||[]).find(x=>x.id===qid);if(!q)return;
+  let a=ltApt(q.apartmentId),t=q.taskId?ltTask(q.taskId):null;
+  let lines=q.sourceLines||[];
+  let net=q.net||((q.items||[]).reduce((s,x)=>s+Number(x.qty||1)*Number(x.price||0),0));
+  let vatAmount=q.vatAmount||net*Number(q.vat||0)/100;
+  let total=q.total||net+vatAmount;
   document.getElementById('pageTitle').textContent='Long Term Quotation';
-  document.getElementById('view').innerHTML=`<div class="card"><div class="card-title">💶 Quotation ${esc(q.number||'')}</div><div class="meta">${fmt(q.date)} • ${esc(q.status||'Sent')}</div>${a?`<p><b>Apartment:</b> ${esc(a.name)}</p>`:''}${t?`<p><b>Linked Task:</b> ${esc(t.title)}</p>`:''}<p>${esc(q.title||'Long Term Repair / Renovation')}</p></div><div class="section-head"><h2>Items</h2></div>${(q.items||[]).length?(q.items||[]).map(x=>`<div class="card"><div class="row space"><div><div class="card-title">${esc(x.description||'Item')}</div><div class="meta">${Number(x.qty||1)} × ${money(Number(x.price||0))}</div></div><b>${money(Number(x.qty||1)*Number(x.price||0))}</b></div></div>`).join(''):'<div class="empty">No quotation items.</div>'}<div class="card"><div class="row space"><b>Total</b><b>${money(longTermQuotationTotal(q))}</b></div></div><div class="row" style="flex-wrap:wrap">${t?`<button class="btn primary" onclick="showLongTermTask('${t.id}')">← Linked Task</button>`:''}<button class="btn soft" onclick="showLongTermApartment('${q.apartmentId}')">Apartment</button></div>`;
+  document.getElementById('view').innerHTML=`
+  <div class="card">
+    <div class="row space"><div><div class="card-title">💶 Quotation ${esc(q.number||'—')}</div><div class="meta">${fmt(q.date)} • ${esc(q.status||'Sent')}</div></div><b>${money(total)}</b></div>
+    ${q.client?`<p><b>Client / Company:</b> ${esc(q.client)}</p>`:''}
+    ${q.clientVat?`<p><b>VAT / ΑΦΜ:</b> ${esc(q.clientVat)}</p>`:''}
+    ${a?`<p><b>Apartment:</b> ${esc(a.name)}</p>`:''}
+    ${(q.address||a?.address)?`<p><b>Address:</b> ${esc(q.address||a.address||'')}</p>`:''}
+    ${t?`<p><b>Linked Task:</b> ${esc(t.title)}</p>`:''}
+  </div>
+  <div class="section-head"><h2>Detailed Items</h2></div>
+  ${lines.length?lines.map(l=>`<div class="card"><div class="row space"><div><div class="card-title">${esc(l.name||'Item')}</div><div class="meta">${Number(l.qty||1)} ${esc(l.unit||'')} • ${esc(l.category||'')}</div>${l.note?`<div class="meta">${esc(l.note)}</div>`:''}</div><b>${money(Number(l.labor||0)+Number(l.materials||0))}</b></div><div class="meta" style="margin-top:8px">Labour: ${money(l.labor||0)}${Number(l.materials||0)>0?` • Materials: ${money(l.materials||0)}`:''}</div>${(l.materialDetails||[]).length?`<div class="meta" style="margin-top:5px">🧱 ${(l.materialDetails||[]).map(m=>`${esc(m.name)} × ${Number(m.qty||1)}`).join(' • ')}</div>`:''}</div>`).join(''):(q.items||[]).map(x=>`<div class="card"><div class="row space"><div><div class="card-title">${esc(x.description||'Item')}</div><div class="meta">${Number(x.qty||1)} × ${money(Number(x.price||0))}</div></div><b>${money(Number(x.qty||1)*Number(x.price||0))}</b></div></div>`).join('')}
+  <div class="card">
+    ${q.labor?`<div class="row space"><span>Labour</span><b>${money(q.labor)}</b></div>`:''}
+    ${q.materials?`<div class="row space" style="margin-top:8px"><span>Materials</span><b>${money(q.materials)}</b></div>`:''}
+    <div class="row space" style="margin-top:8px"><span>Net</span><b>${money(net)}</b></div>
+    <div class="row space" style="margin-top:8px"><span>VAT ${Number(q.vat||0).toFixed(0)}%</span><b>${money(vatAmount)}</b></div>
+    <div class="row space" style="margin-top:12px;font-size:1.15em"><b>Total</b><b>${money(total)}</b></div>
+  </div>
+  ${(q.validity||q.delivery)?`<div class="card">${q.validity?`<p><b>Validity:</b> ${esc(q.validity)}</p>`:''}${q.delivery?`<p><b>Delivery / Notes:</b> ${esc(q.delivery)}</p>`:''}</div>`:''}
+  <div class="row" style="flex-wrap:wrap">${t?`<button class="btn primary" onclick="showLongTermTask('${t.id}')">← Linked Task</button>`:''}<button class="btn soft" onclick="showLongTermApartment('${q.apartmentId}')">Apartment</button></div>`;
 }
 function showLongTerm(){
   data.longTermApartments=data.longTermApartments||[];data.longTermTasks=data.longTermTasks||[];data.longTermInspections=data.longTermInspections||[];
