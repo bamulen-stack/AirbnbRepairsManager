@@ -1986,13 +1986,26 @@ function showLongTermMaterials(aid){
   document.getElementById('pageTitle').textContent='Long Term Materials';
   document.getElementById('view').innerHTML=`<div class="card"><div class="card-title">📦 Materials • ${esc(a.name)}</div><div class="meta">Total ${money(ms.reduce((s,m)=>s+Number(m.qty||1)*Number(m.unitPrice||0),0))}</div></div>${ms.length?ms.map(m=>{let t=ltTask(m.taskId);return `<div class="card lt-material" ${t?`onclick="showLongTermTask('${t.id}')" style="cursor:pointer"`:''}><div class="row space"><div><div class="card-title">${esc(m.name)}</div><div class="meta">${m.qty} ${esc(m.unit||'')} × ${money(m.unitPrice)}${m.date?' • '+fmt(m.date):''}</div>${t?`<div class="meta">Task: ${esc(t.title)} ›</div>`:''}</div><b>${money(Number(m.qty||1)*Number(m.unitPrice||0))}</b></div></div>`}).join(''):'<div class="empty">No materials yet.</div>'}<button class="btn soft" onclick="showLongTermApartment('${aid}')">← Apartment</button>`;
 }
+function deleteLongTermQuotation(qid){
+  let q=(data.longTermQuotations||[]).find(x=>x.id===qid);if(!q)return;
+  if(!confirm('Delete this quotation?'))return;
+  const aid=q.apartmentId,tid=q.taskId||'';
+  data.longTermQuotations=(data.longTermQuotations||[]).filter(x=>x.id!==qid);
+  save();
+  if(tid&&ltTask(tid))showLongTermTask(tid);else showLongTermApartment(aid);
+}
 function showLongTermQuotation(qid){
   let q=(data.longTermQuotations||[]).find(x=>x.id===qid);if(!q)return;
   let a=ltApt(q.apartmentId),t=q.taskId?ltTask(q.taskId):null;
   let lines=q.sourceLines||[];
-  let net=q.net||((q.items||[]).reduce((s,x)=>s+Number(x.qty||1)*Number(x.price||0),0));
-  let vatAmount=q.vatAmount||net*Number(q.vat||0)/100;
-  let total=q.total||net+vatAmount;
+  let itemLabor=lines.reduce((s,l)=>s+Number(l.labor||0),0);
+  let itemMaterials=lines.reduce((s,l)=>s+Number(l.materials||0),0);
+  let laborTotal=Number(q.labor||itemLabor);
+  let visitAdjustment=Math.max(0,laborTotal-itemLabor);
+  let materialsTotal=Number(q.materials||itemMaterials);
+  let net=Number(q.net||0)||(laborTotal+materialsTotal)||((q.items||[]).reduce((s,x)=>s+Number(x.qty||1)*Number(x.price||0),0));
+  let vatAmount=Number(q.vatAmount||0)||net*Number(q.vat||0)/100;
+  let total=Number(q.total||0)||net+vatAmount;
   document.getElementById('pageTitle').textContent='Long Term Quotation';
   document.getElementById('view').innerHTML=`
   <div class="card">
@@ -2006,14 +2019,20 @@ function showLongTermQuotation(qid){
   <div class="section-head"><h2>Detailed Items</h2></div>
   ${lines.length?lines.map(l=>`<div class="card"><div class="row space"><div><div class="card-title">${esc(l.name||'Item')}</div><div class="meta">${Number(l.qty||1)} ${esc(l.unit||'')} • ${esc(l.category||'')}</div>${l.note?`<div class="meta">${esc(l.note)}</div>`:''}</div><b>${money(Number(l.labor||0)+Number(l.materials||0))}</b></div><div class="meta" style="margin-top:8px">Labour: ${money(l.labor||0)}${Number(l.materials||0)>0?` • Materials: ${money(l.materials||0)}`:''}</div>${(l.materialDetails||[]).length?`<div class="meta" style="margin-top:5px">🧱 ${(l.materialDetails||[]).map(m=>`${esc(m.name)} × ${Number(m.qty||1)}`).join(' • ')}</div>`:''}</div>`).join(''):(q.items||[]).map(x=>`<div class="card"><div class="row space"><div><div class="card-title">${esc(x.description||'Item')}</div><div class="meta">${Number(x.qty||1)} × ${money(Number(x.price||0))}</div></div><b>${money(Number(x.qty||1)*Number(x.price||0))}</b></div></div>`).join('')}
   <div class="card">
-    ${q.labor?`<div class="row space"><span>Labour</span><b>${money(q.labor)}</b></div>`:''}
-    ${q.materials?`<div class="row space" style="margin-top:8px"><span>Materials</span><b>${money(q.materials)}</b></div>`:''}
+    ${lines.length?`<div class="row space"><span>Items Labour</span><b>${money(itemLabor)}</b></div>`:''}
+    ${visitAdjustment>0.001?`<div class="row space" style="margin-top:8px"><span>Minimum visit adjustment</span><b>+${money(visitAdjustment)}</b></div>`:''}
+    <div class="row space" style="margin-top:8px"><span>Labour Total</span><b>${money(laborTotal)}</b></div>
+    <div class="row space" style="margin-top:8px"><span>Materials</span><b>${money(materialsTotal)}</b></div>
     <div class="row space" style="margin-top:8px"><span>Net</span><b>${money(net)}</b></div>
     <div class="row space" style="margin-top:8px"><span>VAT ${Number(q.vat||0).toFixed(0)}%</span><b>${money(vatAmount)}</b></div>
     <div class="row space" style="margin-top:12px;font-size:1.15em"><b>Total</b><b>${money(total)}</b></div>
   </div>
   ${(q.validity||q.delivery)?`<div class="card">${q.validity?`<p><b>Validity:</b> ${esc(q.validity)}</p>`:''}${q.delivery?`<p><b>Delivery / Notes:</b> ${esc(q.delivery)}</p>`:''}</div>`:''}
-  <div class="row" style="flex-wrap:wrap">${t?`<button class="btn primary" onclick="showLongTermTask('${t.id}')">← Linked Task</button>`:''}<button class="btn soft" onclick="showLongTermApartment('${q.apartmentId}')">Apartment</button></div>`;
+  <div class="row" style="flex-wrap:wrap">
+    ${t?`<button class="btn primary" onclick="showLongTermTask('${t.id}')">← Linked Task</button>`:''}
+    <button class="btn soft" onclick="showLongTermApartment('${q.apartmentId}')">Apartment</button>
+    <button class="btn danger" onclick="deleteLongTermQuotation('${q.id}')">🗑 Delete Quotation</button>
+  </div>`;
 }
 function showLongTerm(){
   data.longTermApartments=data.longTermApartments||[];data.longTermTasks=data.longTermTasks||[];data.longTermInspections=data.longTermInspections||[];
