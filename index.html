@@ -1057,14 +1057,14 @@ function renderWorkHours(){
   let by={}; rows.forEach(x=>{let n=x.worker||"Unnamed";by[n]=by[n]||{h:0,o:0};by[n].h+=whHours(x);by[n].o+=Number(x.overtime||0)});
   let people=Object.entries(by).sort((a,b)=>b[1].h-a[1].h);
   document.getElementById("view").innerHTML=`
-  <div class="card"><div class="row space"><div><div class="card-title">👷 Staff Work Calendar</div><div class="meta">Separate from Tasks & Inspections</div></div><button class="small-btn primary" onclick="editWorkHour()">+ Entry</button></div>
+  <div class="card"><div class="row space"><div><div class="card-title">👷 Staff Work Calendar</div><div class="meta">Multiple locations per worker and day</div></div><button class="small-btn primary" onclick="editWorkHour()">+ Entry</button></div>
   <div class="field" style="margin-top:12px"><label>Month</label><input id="whMonth" type="month" value="${whMonth}" onchange="whMonth=this.value;renderWorkHours()"></div>
   <div class="row no-print" style="gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn soft" onclick="openWorkHoursReport('week')">📅 Weekly Report</button><button class="btn soft" onclick="openWorkHoursReport('month')">🗓️ Monthly Report</button></div>
   <div class="row" style="gap:8px"><div class="card" style="flex:1;margin:0"><div class="meta">Total Hours</div><div class="card-title">${total.toFixed(1)} h</div></div><div class="card" style="flex:1;margin:0"><div class="meta">Overtime</div><div class="card-title">${ot.toFixed(1)} h</div></div></div></div>
   <div class="section-head"><h2>Monthly Summary</h2><span class="muted">${people.length} workers</span></div>
   ${people.length?people.map(([n,v])=>`<div class="card"><div class="row space"><b>${esc(n)}</b><b>${v.h.toFixed(1)} h</b></div><div class="meta">Overtime: ${v.o.toFixed(1)} h</div></div>`).join(""):'<div class="empty">No work-hour entries this month.</div>'}
-  <div class="section-head"><h2>Entries</h2><span class="muted">${rows.length}</span></div>
-  ${rows.length?rows.map(x=>`<div class="card" onclick="editWorkHour('${x.id}')"><div class="row space"><div><b>${esc(x.worker||"")}</b><div class="meta">${fmt(x.date)}${x.property?` • ${esc(x.property)}`:""}</div></div><div style="text-align:right"><b>${whHours(x).toFixed(1)} h</b>${Number(x.overtime||0)?`<div class="meta">+${Number(x.overtime).toFixed(1)} OT</div>`:""}</div></div>${x.start||x.end?`<div class="meta">${esc(x.start||"")} – ${esc(x.end||"")}</div>`:""}${x.notes?`<div class="meta">${esc(x.notes)}</div>`:""}</div>`).join(""):'<div class="empty">Tap + Entry to add staff hours.</div>'}`;
+  <div class="section-head"><h2>Daily Entries</h2><span class="muted">${rows.length} periods</span></div>
+  ${rows.length?Object.values(rows.reduce((groups,x)=>{let key=x.worker+'|'+x.date;(groups[key]??=[]).push(x);return groups},{})).map(group=>{let first=group[0],sum=group.reduce((v,x)=>v+whHours(x),0);return `<div class="card" onclick="editWorkHour('${first.id}')" style="cursor:pointer"><div class="row space"><div><b>${esc(first.worker)} • ${fmt(first.date)}</b><div class="meta">${group.length} work periods • Tap to edit day</div></div><b>${sum.toFixed(2)} h</b></div>${group.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map(x=>`<div class="meta" style="padding-top:7px">${esc(x.start||'')} – ${esc(x.end||'')} • ${esc(x.property||'')} • ${whHours(x).toFixed(2)} h</div>`).join('')}</div>`}).join(''):'<div class="empty">Tap + Entry to add staff hours.</div>'}`;
 }
 
 let whReportMode="week",whReportDate=today();
@@ -1166,7 +1166,7 @@ async function saveWorkHoursPdf(){
     }
     const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
   }catch(err){console.error(err);alert("PDF error: "+(err?.message||err))}
-  finally{if(btn){btn.disabled=false;btn.textContent="📤 Save / Share PDF"}}
+  finally{if(btn){btn.disabled=false;btn.textContent="📄 Save / Share PDF"}}
 }
 
 function renderWorkHoursReport(){
@@ -1194,32 +1194,77 @@ function renderWorkHoursReport(){
   <div class="row no-print" style="gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn soft" onclick="shiftWorkHoursReport(-1)">◀ Previous</button>
     <button class="btn soft" onclick="shiftWorkHoursReport(1)">Next ▶</button>
-    <button id="whSavePdfBtn" type="button" class="btn primary" onclick="saveWorkHoursPdf()">📤 Save / Share PDF</button><button type="button" class="btn soft" onclick="window.print()">🖨️ Print</button>
+    <button id="whSavePdfBtn" type="button" class="btn primary" onclick="saveWorkHoursPdf()">📄 Save / Share PDF</button>
     <button class="btn soft" onclick="renderWorkHours()">← Work Hours</button>
   </div>`;
 }
 
+
+let whDraftPeriods=[];
+function whPeriodRow(p={},i=0){
+ return `<div class="card" style="margin:8px 0;padding:12px;border:1px solid #36536b">
+ <div class="row space"><b>Work Period ${i+1}</b><button class="small-btn danger" type="button" onclick="removeWHPeriod(${i})">✕ Remove</button></div>
+ <div class="row"><div class="field"><label>Start *</label><input class="wh-p-start" type="time" value="${esc(p.start||'')}"></div><div class="field"><label>End *</label><input class="wh-p-end" type="time" value="${esc(p.end||'')}"></div></div>
+ <div class="field"><label>Property / Project *</label><input class="wh-p-property" value="${esc(p.property||'')}" placeholder="Office, Plastira, etc."></div>
+ <div class="field"><label>Notes (optional)</label><input class="wh-p-notes" value="${esc(p.notes||'')}"></div></div>`;
+}
+function collectWHPeriods(){
+ return [...document.querySelectorAll('#whPeriods > .card')].map(el=>({
+ start:el.querySelector('.wh-p-start').value,end:el.querySelector('.wh-p-end').value,
+ property:el.querySelector('.wh-p-property').value.trim(),notes:el.querySelector('.wh-p-notes').value.trim()
+ }));
+}
+function renderWHPeriods(){
+ const el=document.getElementById('whPeriods');if(el)el.innerHTML=whDraftPeriods.map(whPeriodRow).join('');
+}
+function addWHPeriod(){whDraftPeriods=collectWHPeriods();whDraftPeriods.push({});renderWHPeriods()}
+function removeWHPeriod(i){whDraftPeriods=collectWHPeriods();if(whDraftPeriods.length===1)return alert('At least one period is required.');whDraftPeriods.splice(i,1);renderWHPeriods()}
 function editWorkHour(i=""){
-  let x=(data.workHours||[]).find(v=>v.id===i)||{},names=[...new Set([...(data.workers||[]),(data.workHours||[]).map(v=>v.worker).filter(Boolean)].flat())];
-  document.getElementById("pageTitle").textContent=i?"Edit Work Hours":"Add Work Hours";
-  document.getElementById("view").innerHTML=`<div class="card">
-  <div class="field"><label>Worker *</label><input id="whWorker" list="whWorkers" value="${esc(x.worker||"")}" placeholder="Name"><datalist id="whWorkers">${names.map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
-  <div class="field"><label>Date *</label><input id="whDate" type="date" value="${x.date||today()}"></div>
-  <div class="row"><div class="field"><label>Start</label><input id="whStart" type="time" value="${x.start||""}"></div><div class="field"><label>End</label><input id="whEnd" type="time" value="${x.end||""}"></div></div>
-  <div class="row"><div class="field"><label>Hours (optional override)</label><input id="whHours" type="number" min="0" step="0.25" value="${x.hours??""}" placeholder="Auto from Start/End"></div><div class="field"><label>Overtime</label><input id="whOT" type="number" min="0" step="0.25" value="${x.overtime||0}"></div></div>
-  <div class="field"><label>Property / Project (optional)</label><input id="whProperty" value="${esc(x.property||"")}" placeholder="Airbnb, Long Term or other"></div>
-  <div class="field"><label>Notes</label><textarea id="whNotes">${esc(x.notes||"")}</textarea></div>
-  <div class="row"><button class="btn soft" onclick="renderWorkHours()">Cancel</button><button class="btn primary" onclick="saveWorkHour('${i}')">Save</button></div>
-  ${i?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="deleteWorkHour('${i}')">Delete Entry</button>`:""}</div>`;
+ const x=(data.workHours||[]).find(v=>v.id===i)||{};
+ const names=[...new Set([...(data.workers||[]),...(data.workHours||[]).map(v=>v.worker).filter(Boolean)])];
+ const date=x.date||today(),worker=x.worker||'';
+ const group=i?(data.workHours||[]).filter(v=>v.worker===worker&&v.date===date):[];
+ whDraftPeriods=(group.length?group:[{start:'',end:'',property:'',notes:''}]).map(v=>({id:v.id,start:v.start||'',end:v.end||'',property:v.property||'',notes:v.notes||''}));
+ document.getElementById('pageTitle').textContent=i?'Edit Daily Work Hours':'Add Daily Work Hours';
+ document.getElementById('view').innerHTML=`<div class="card">
+ <div class="field"><label>Worker *</label><input id="whWorker" list="whWorkers" value="${esc(worker)}" placeholder="Name"><datalist id="whWorkers">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
+ <div class="field"><label>Date *</label><input id="whDate" type="date" value="${date}"></div>
+ <div class="section-head"><h2>Work periods</h2></div><div class="meta">Enter each location and time range separately. Breaks are not counted.</div>
+ <div id="whPeriods"></div>
+ <button class="btn soft" type="button" onclick="addWHPeriod()">+ Add Work Period</button>
+ <div class="field" style="margin-top:14px"><label>Daily overtime (hours)</label><input id="whOT" type="number" min="0" step="0.25" value="${group.length?group.reduce((sum,v)=>sum+Number(v.overtime||0),0):0}"></div>
+ <div class="row"><button class="btn soft" onclick="renderWorkHours()">Cancel</button><button class="btn primary" onclick="saveWorkHour('${i}')">Save Day</button></div>
+ ${i?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="deleteWHDay('${i}')">Delete Entire Day</button>`:''}</div>`;
+ renderWHPeriods();
 }
 function saveWorkHour(i=""){
-  let worker=document.getElementById("whWorker").value.trim(),date=document.getElementById("whDate").value;
-  if(!worker||!date)return alert("Worker and date are required.");
-  let o={worker,date,start:document.getElementById("whStart").value,end:document.getElementById("whEnd").value,hours:document.getElementById("whHours").value,overtime:Number(document.getElementById("whOT").value)||0,property:document.getElementById("whProperty").value.trim(),notes:document.getElementById("whNotes").value.trim()};
-  let old=(data.workHours||[]).find(v=>v.id===i);
-  if(old)Object.assign(old,o);else (data.workHours=data.workHours||[]).push({id:id(),...o});
-  data.workers=data.workers||[];if(!data.workers.includes(worker))data.workers.push(worker);
-  save();whMonth=date.slice(0,7);renderWorkHours();
+ const worker=document.getElementById('whWorker').value.trim(),date=document.getElementById('whDate').value;
+ if(!worker||!date)return alert('Worker and date are required.');
+ const periods=collectWHPeriods();
+ if(!periods.length||periods.some(p=>!p.start||!p.end||!p.property))return alert('Enter start, end and location for every period.');
+ const minute=t=>{const [h,m]=t.split(':').map(Number);return h*60+m};
+ if(periods.some(p=>minute(p.end)<=minute(p.start)))return alert('End time must be later than start time.');
+ const sorted=periods.map(p=>({...p,a:minute(p.start),b:minute(p.end)})).sort((a,b)=>a.a-b.a);
+ if(sorted.some((p,j)=>j&&p.a<sorted[j-1].b))return alert('Work periods cannot overlap.');
+ const overtime=Number(document.getElementById('whOT').value)||0;
+ const existing=(data.workHours||[]).filter(v=>v.worker===worker&&v.date===date);
+ if(!i&&existing.length&&!confirm('There are already periods for this worker and date. Add these periods to the same day?'))return;
+ if(i){
+  const original=(data.workHours||[]).find(v=>v.id===i);
+  if(original)data.workHours=data.workHours.filter(v=>!(v.worker===original.worker&&v.date===original.date));
+ }
+ data.workHours=data.workHours||[];
+ const target=(i?[]:existing).concat(sorted.map((p,j)=>({id:id(),worker,date,start:p.start,end:p.end,hours:'',overtime:j===0?overtime:0,property:p.property,notes:p.notes})));
+ if(i){data.workHours.push(...target)}
+ else{data.workHours.push(...target.slice(existing.length))}
+ data.workers=data.workers||[];if(!data.workers.includes(worker))data.workers.push(worker);
+ save();whMonth=date.slice(0,7);renderWorkHours();
+}
+function deleteWHDay(i){
+ const x=(data.workHours||[]).find(v=>v.id===i);if(!x)return;
+ if(!confirm('Delete ALL work periods for '+x.worker+' on '+x.date+'?'))return;
+ data.workHours=data.workHours.filter(v=>!(v.worker===x.worker&&v.date===x.date));
+ save();renderWorkHours();
 }
 function deleteWorkHour(i){if(!confirm("Delete this work-hour entry?"))return;data.workHours=(data.workHours||[]).filter(x=>x.id!==i);save();renderWorkHours()}
 function render(){
