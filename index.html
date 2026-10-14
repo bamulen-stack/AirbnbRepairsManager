@@ -1044,6 +1044,11 @@ function whHours(x){
   let h=(eh*60+em-sh*60-sm)/60;if(h<0)h+=24;
   return Math.round(h*100)/100;
 }
+// Presentation only: stored decimal values remain unchanged.
+function whDuration(value){
+  const minutes=Math.max(0,Math.round((Number(value)||0)*60));
+  return Math.floor(minutes/60)+'h '+String(minutes%60).padStart(2,'0')+'m';
+}
 function whWeekKey(date){
   let d=new Date(date+"T12:00:00"),day=(d.getDay()+6)%7;
   d.setDate(d.getDate()-day);
@@ -1063,11 +1068,11 @@ function renderWorkHours(){
   <div class="card"><div class="row space"><div><div class="card-title">👷 Staff Work Calendar</div><div class="meta">Multiple locations per worker and day</div></div><button class="small-btn primary" onclick="editWorkHour()">+ Entry</button></div>
   <div class="field" style="margin-top:12px"><label>Month</label><input id="whMonth" type="month" value="${whMonth}" onchange="whMonth=this.value;renderWorkHours()"></div>
   <div class="row no-print" style="gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn soft" onclick="openWorkHoursReport('week')">📅 Weekly Report</button><button class="btn soft" onclick="openWorkHoursReport('month')">🗓️ Monthly Report</button></div>
-  <div class="row" style="gap:8px"><div class="card" style="flex:1;margin:0"><div class="meta">Total Hours</div><div class="card-title">${total.toFixed(1)} h</div></div><div class="card" style="flex:1;margin:0"><div class="meta">Overtime</div><div class="card-title">${ot.toFixed(1)} h</div></div></div></div>
+  <div class="row" style="gap:8px"><div class="card" style="flex:1;margin:0"><div class="meta">Total Hours</div><div class="card-title">${whDuration(total)}</div></div><div class="card" style="flex:1;margin:0"><div class="meta">Overtime</div><div class="card-title">${whDuration(ot)}</div></div></div></div>
   <div class="section-head"><h2>Monthly Summary</h2><span class="muted">${people.length} workers</span></div>
-  ${people.length?people.map(([n,v])=>`<div class="card" onclick="selectWHWorker(decodeURIComponent('${encodeURIComponent(n)}'))" style="cursor:pointer;${whSelectedWorker===n?'border:2px solid #389cff;':''}"><div class="row space"><b>👷 ${esc(n)}</b><b>${v.h.toFixed(1)} h &nbsp; ${whSelectedWorker===n?'▴':'▾'}</b></div><div class="meta">Overtime: ${v.o.toFixed(1)} h • Tap to ${whSelectedWorker===n?'hide':'view'} days and hours</div></div>`).join(""):'<div class="empty">No work-hour entries this month.</div>'}
+  ${people.length?people.map(([n,v])=>`<div class="card" onclick="selectWHWorker(decodeURIComponent('${encodeURIComponent(n)}'))" style="cursor:pointer;${whSelectedWorker===n?'border:2px solid #389cff;':''}"><div class="row space"><b>👷 ${esc(n)}</b><b>${whDuration(v.h)} &nbsp; ${whSelectedWorker===n?'▴':'▾'}</b></div><div class="meta">Overtime: ${whDuration(v.o)} • Tap to ${whSelectedWorker===n?'hide':'view'} days and hours</div></div>`).join(""):'<div class="empty">No work-hour entries this month.</div>'}
   ${whSelectedWorker?`<div class="section-head"><h2>${esc(whSelectedWorker)} — Daily Entries</h2><span class="muted">${visibleRows.length} periods</span></div>`:'<div class="meta" style="padding:12px 4px">Tap a worker above to see their dates, locations and hours.</div>'}
-  ${whSelectedWorker&&visibleRows.length?Object.values(visibleRows.reduce((groups,x)=>{let key=x.worker+'|'+x.date;(groups[key]??=[]).push(x);return groups},{})).map(group=>{let first=group[0],sum=group.reduce((v,x)=>v+whHours(x),0);return `<div class="card" onclick="editWorkHour('${first.id}')" style="cursor:pointer"><div class="row space"><div><b>${esc(first.worker)} • ${fmt(first.date)}</b><div class="meta">${group.length} work periods • Tap to edit day</div></div><b>${sum.toFixed(2)} h</b></div>${group.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map(x=>`<div class="meta" style="padding-top:7px">${esc(x.start||'')} – ${esc(x.end||'')} • ${esc(x.property||'')} • ${whHours(x).toFixed(2)} h</div>`).join('')}</div>`}).join(''):''}`;
+  ${whSelectedWorker&&visibleRows.length?Object.values(visibleRows.reduce((groups,x)=>{let key=x.worker+'|'+x.date;(groups[key]??=[]).push(x);return groups},{})).map(group=>{let first=group[0],sum=group.reduce((v,x)=>v+whHours(x),0);return `<div class="card" onclick="editWorkHour('${first.id}')" style="cursor:pointer"><div class="row space"><div><b>${esc(first.worker)} • ${fmt(first.date)}</b><div class="meta">${group.length} work periods • Tap to edit day</div></div><b>${whDuration(sum)}</b></div>${group.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map(x=>`<div class="meta" style="padding-top:7px">${esc(x.start||'')} – ${esc(x.end||'')} • ${esc(x.property||'')} • ${whDuration(whHours(x))}</div>`).join('')}</div>`}).join(''):''}`;
 }
 
 let whReportMode="week",whReportDate=today();
@@ -1137,13 +1142,13 @@ async function saveWorkHoursPdf(){
     const people=Object.entries(by).sort((a,b)=>a[0].localeCompare(b[0]));
     const total=rows.reduce((a,x)=>a+whHours(x),0),ot=rows.reduce((a,x)=>a+Number(x.overtime||0),0);
     let pages=[],pageNo=1,c=whPdfPage(title,period,pageNo),y=650;
-    c=whPdfText(c,"TOTAL HOURS",45,y,9,false);c=whPdfText(c,total.toFixed(1)+" h",45,y-25,18,true);
-    c=whPdfText(c,"OVERTIME",300,y,9,false);c=whPdfText(c,ot.toFixed(1)+" h",300,y-25,18,true);y-=70;
+    c=whPdfText(c,"TOTAL HOURS",45,y,9,false);c=whPdfText(c,whDuration(total),45,y-25,18,true);
+    c=whPdfText(c,"OVERTIME",300,y,9,false);c=whPdfText(c,whDuration(ot),300,y-25,18,true);y-=70;
     c=whPdfText(c,"Summary by Worker",45,y,14,true);y-=28;
     c=whPdfText(c,"Worker",45,y,9,true);c=whPdfText(c,"Days",280,y,9,true);c=whPdfText(c,"Hours",350,y,9,true);c=whPdfText(c,"OT",440,y,9,true);y-=20;
     if(!people.length){c=whPdfText(c,"No entries for this period.",45,y,10,false);y-=22}
     for(const [n,v] of people){
-      c=whPdfText(c,n,45,y,10,false);c=whPdfText(c,String(v.days.size),280,y,10,false);c=whPdfText(c,v.h.toFixed(1),350,y,10,false);c=whPdfText(c,v.o.toFixed(1),440,y,10,false);y-=20;
+      c=whPdfText(c,n,45,y,10,false);c=whPdfText(c,String(v.days.size),280,y,10,false);c=whPdfText(c,whDuration(v.h),350,y,10,false);c=whPdfText(c,whDuration(v.o),440,y,10,false);y-=20;
     }
     y-=18;c=whPdfText(c,"Detailed Entries",45,y,14,true);y-=28;
     const detailHeader=()=>{c=whPdfText(c,"Date",45,y,8,true);c=whPdfText(c,"Worker",110,y,8,true);c=whPdfText(c,"Time",220,y,8,true);c=whPdfText(c,"Hours",315,y,8,true);c=whPdfText(c,"OT",365,y,8,true);c=whPdfText(c,"Property / Project",410,y,8,true);y-=18};
@@ -1153,8 +1158,8 @@ async function saveWorkHoursPdf(){
       c=whPdfText(c,r.date||"",45,y,8,false);
       c=whPdfText(c,(r.worker||"").slice(0,17),110,y,8,false);
       c=whPdfText(c,((r.start||"")+"-"+(r.end||"")).slice(0,14),220,y,8,false);
-      c=whPdfText(c,whHours(r).toFixed(1),315,y,8,false);
-      c=whPdfText(c,Number(r.overtime||0).toFixed(1),365,y,8,false);
+      c=whPdfText(c,whDuration(whHours(r)),315,y,8,false);
+      c=whPdfText(c,whDuration(Number(r.overtime||0)),365,y,8,false);
       c=whPdfText(c,(r.property||"").slice(0,26),410,y,8,false);
       y-=18;
       if(r.notes){c=whPdfText(c,("Note: "+r.notes).slice(0,78),110,y,7,false);y-=16}
@@ -1189,10 +1194,10 @@ function renderWorkHoursReport(){
   document.getElementById("view").innerHTML=`
   <div class="report" style="color:#13233a;background:#fff">
     <div style="text-align:center;margin-bottom:18px"><h2 style="margin:0">MGV • Staff Work Hours</h2><div class="muted">${whReportMode==="week"?"Weekly Report":"Monthly Report"}</div><h3>${esc(label)}</h3></div>
-    <div class="row" style="gap:8px;margin-bottom:14px"><div class="card" style="flex:1;margin:0"><div class="meta">Total Hours</div><div class="card-title">${total.toFixed(1)} h</div></div><div class="card" style="flex:1;margin:0"><div class="meta">Overtime</div><div class="card-title">${ot.toFixed(1)} h</div></div></div>
+    <div class="row" style="gap:8px;margin-bottom:14px"><div class="card" style="flex:1;margin:0"><div class="meta">Total Hours</div><div class="card-title">${whDuration(total)}</div></div><div class="card" style="flex:1;margin:0"><div class="meta">Overtime</div><div class="card-title">${whDuration(ot)}</div></div></div>
     <h3>Summary by Worker</h3>
-    ${people.length?`<table class="report-table" style="color:#13233a"><tr><th>Worker</th><th>Days</th><th>Hours</th><th>OT</th></tr>${people.map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.days.size}</td><td>${v.h.toFixed(1)}</td><td>${v.o.toFixed(1)}</td></tr>`).join("")}</table>`:'<div class="empty">No entries for this period.</div>'}
-    ${rows.length?`<h3 style="margin-top:20px">Detailed Entries</h3><table class="report-table" style="color:#13233a"><tr><th>Date</th><th>Worker</th><th>Time</th><th>Hours</th><th>OT</th><th>Property / Project</th></tr>${rows.map(x=>`<tr><td>${fmt(x.date)}</td><td>${esc(x.worker||"")}</td><td>${esc((x.start||"")+(x.start||x.end?" – ":"")+(x.end||""))}</td><td>${whHours(x).toFixed(1)}</td><td>${Number(x.overtime||0).toFixed(1)}</td><td>${esc(x.property||"")}${x.notes?`<div class="meta">${esc(x.notes)}</div>`:""}</td></tr>`).join("")}</table>`:""}
+    ${people.length?`<table class="report-table" style="color:#13233a"><tr><th>Worker</th><th>Days</th><th>Hours</th><th>OT</th></tr>${people.map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.days.size}</td><td>${whDuration(v.h)}</td><td>${whDuration(v.o)}</td></tr>`).join("")}</table>`:'<div class="empty">No entries for this period.</div>'}
+    ${rows.length?`<h3 style="margin-top:20px">Detailed Entries</h3><table class="report-table" style="color:#13233a"><tr><th>Date</th><th>Worker</th><th>Time</th><th>Hours</th><th>OT</th><th>Property / Project</th></tr>${rows.map(x=>`<tr><td>${fmt(x.date)}</td><td>${esc(x.worker||"")}</td><td>${esc((x.start||"")+(x.start||x.end?" – ":"")+(x.end||""))}</td><td>${whDuration(whHours(x))}</td><td>${whDuration(Number(x.overtime||0))}</td><td>${esc(x.property||"")}${x.notes?`<div class="meta">${esc(x.notes)}</div>`:""}</td></tr>`).join("")}</table>`:""}
   </div>
   <div class="row no-print" style="gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn soft" onclick="shiftWorkHoursReport(-1)">◀ Previous</button>
@@ -1649,7 +1654,7 @@ function renderHome(){
       ${kpi('blue','🔎',inspections.length,'Inspections','showAllInspections()')}
       ${kpi('','🏢',properties,'Properties',"route='properties';render()")}
       ${kpi('blue','🏠',(data.longTermApartments||[]).length,'Long Term','showLongTerm()')}
-      ${kpi('blue','👷',(data.workHours||[]).filter(x=>(x.date||'').startsWith(month)).reduce((s,x)=>s+whHours(x),0).toFixed(1)+'h','Work Hours',"route='workhours';renderWorkHours()")}
+      ${kpi('blue','👷',whDuration((data.workHours||[]).filter(x=>(x.date||'').startsWith(month)).reduce((s,x)=>s+whHours(x),0)),'Work Hours',"route='workhours';renderWorkHours()")}
     </div>
 
     <div class="ceo-section">
