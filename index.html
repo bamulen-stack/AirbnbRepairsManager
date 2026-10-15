@@ -1066,6 +1066,39 @@ function whEntryOvertime(entry){
   remaining=Math.max(0,remaining-part);
  }return 0;
 }
+// Greek nationwide holidays; Orthodox Easter is calculated using the Julian calendar.
+function whGreekEaster(year){
+ const a=year%4,b=year%7,c=year%19,d=(19*c+15)%30,e=(2*a+4*b-d+34)%7;
+ const julianMonth=Math.floor((d+e+114)/31),julianDay=(d+e+114)%31+1;
+ const shift=Math.floor(year/100)-Math.floor(year/400)-2;
+ const utc=new Date(Date.UTC(year,julianMonth-1,julianDay+shift));
+ return utc.toISOString().slice(0,10);
+}
+function whHolidayName(date){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date||''))return '';
+ const year=Number(date.slice(0,4)),md=date.slice(5);
+ const fixed={'01-01':'New Year','01-06':'Epiphany','03-25':'Independence Day','05-01':'Labour Day','08-15':'Assumption','10-28':'Ohi Day','12-25':'Christmas','12-26':'Second Day of Christmas'};
+ if(fixed[md])return fixed[md];
+ const easter=whGreekEaster(year);
+ const relative=[[-48,'Clean Monday'],[-2,'Good Friday'],[0,'Easter Sunday'],[1,'Easter Monday'],[50,'Holy Spirit Monday']];
+ for(const [offset,name] of relative)if(whAddDays(easter,offset)===date)return name;
+ return '';
+}
+function whDayType(date){
+ if(whHolidayName(date))return 'holiday';
+ const day=new Date(date+'T12:00:00').getDay();
+ return day===6?'saturday':day===0?'sunday':'weekday';
+}
+const whDayLabels={weekday:'Mon–Fri',saturday:'Saturday',sunday:'Sunday',holiday:'Public holidays'};
+function whDayTotals(rows){
+ const totals={weekday:0,saturday:0,sunday:0,holiday:0};
+ rows.forEach(x=>{totals[whDayType(x.date)]+=whHours(x)});
+ return totals;
+}
+function whDayBreakdownHtml(rows){
+ const totals=whDayTotals(rows);
+ return `<div class="card" style="margin-top:12px"><div class="card-title">Hours by Day Type</div><div class="meta" style="margin-bottom:8px">Greek nationwide public holidays; holiday hours counted only once.</div>${Object.keys(whDayLabels).map(k=>`<div class="row space" style="padding:5px 0"><span>${whDayLabels[k]}</span><b>${whDuration(totals[k])}</b></div>`).join('')}</div>`;
+}
 function whWeekKey(date){
   let d=new Date(date+"T12:00:00"),day=(d.getDay()+6)%7;
   d.setDate(d.getDate()-day);
@@ -1086,10 +1119,11 @@ function renderWorkHours(){
   <div class="field" style="margin-top:12px"><label>Month</label><input id="whMonth" type="month" value="${whMonth}" onchange="whMonth=this.value;renderWorkHours()"></div>
   <div class="row no-print" style="gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn soft" onclick="openWorkHoursReport('week')">📅 Weekly Report</button><button class="btn soft" onclick="openWorkHoursReport('month')">🗓️ Monthly Report</button></div>
   <div class="row" style="gap:8px"><div class="card" style="flex:1;margin:0"><div class="meta">Total Hours</div><div class="card-title">${whDuration(total)}</div></div><div class="card" style="flex:1;margin:0"><div class="meta">Overtime</div><div class="card-title">${whDuration(ot)}</div></div></div></div>
+  ${whDayBreakdownHtml(rows)}
   <div class="section-head"><h2>Monthly Summary</h2><span class="muted">${people.length} workers</span></div>
   ${people.length?people.map(([n,v])=>`<div class="card" onclick="selectWHWorker(decodeURIComponent('${encodeURIComponent(n)}'))" style="cursor:pointer;${whSelectedWorker===n?'border:2px solid #389cff;':''}"><div class="row space"><b>👷 ${esc(n)}</b><b>${whDuration(v.h)} &nbsp; ${whSelectedWorker===n?'▴':'▾'}</b></div><div class="meta">Overtime: ${whDuration(v.o)} • Tap to ${whSelectedWorker===n?'hide':'view'} days and hours</div></div>`).join(""):'<div class="empty">No work-hour entries this month.</div>'}
   ${whSelectedWorker?`<div class="section-head"><h2>${esc(whSelectedWorker)} — Daily Entries</h2><span class="muted">${visibleRows.length} periods</span></div>`:'<div class="meta" style="padding:12px 4px">Tap a worker above to see their dates, locations and hours.</div>'}
-  ${whSelectedWorker&&visibleRows.length?Object.values(visibleRows.reduce((groups,x)=>{let key=x.worker+'|'+x.date;(groups[key]??=[]).push(x);return groups},{})).map(group=>{let first=group[0],sum=group.reduce((v,x)=>v+whHours(x),0);return `<div class="card" onclick="editWorkHour('${first.id}')" style="cursor:pointer"><div class="row space"><div><b>${esc(first.worker)} • ${fmt(first.date)}</b><div class="meta">${group.length} work periods • Tap to edit day</div></div><b>${whDuration(sum)}</b></div>${group.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map(x=>`<div class="meta" style="padding-top:7px">${esc(x.start||'')} – ${esc(x.end||'')} • ${esc(x.property||'')} • ${whDuration(whHours(x))}</div>`).join('')}</div>`}).join(''):''}`;
+  ${whSelectedWorker&&visibleRows.length?Object.values(visibleRows.reduce((groups,x)=>{let key=x.worker+'|'+x.date;(groups[key]??=[]).push(x);return groups},{})).map(group=>{let first=group[0],sum=group.reduce((v,x)=>v+whHours(x),0);return `<div class="card" onclick="editWorkHour('${first.id}')" style="cursor:pointer"><div class="row space"><div><b>${esc(first.worker)} • ${fmt(first.date)} ${whDayType(first.date)!=="weekday"?"("+(whHolidayName(first.date)||whDayLabels[whDayType(first.date)])+")":""}</b><div class="meta">${group.length} work periods • Tap to edit day</div></div><b>${whDuration(sum)}</b></div>${group.slice().sort((a,b)=>(a.start||'').localeCompare(b.start||'')).map(x=>`<div class="meta" style="padding-top:7px">${esc(x.start||'')} – ${esc(x.end||'')} • ${esc(x.property||'')} • ${whDuration(whHours(x))}</div>`).join('')}</div>`}).join(''):''}`;
 }
 
 let whReportMode="week",whReportDate=today();
@@ -1161,6 +1195,12 @@ async function saveWorkHoursPdf(){
     let pages=[],pageNo=1,c=whPdfPage(title,period,pageNo),y=650;
     c=whPdfText(c,"TOTAL HOURS",45,y,9,false);c=whPdfText(c,whDuration(total),45,y-25,18,true);
     c=whPdfText(c,"OVERTIME",300,y,9,false);c=whPdfText(c,whDuration(ot),300,y-25,18,true);y-=70;
+    const types=whDayTotals(rows);
+    c=whPdfText(c,"HOURS BY DAY TYPE",45,y,12,true);y-=20;
+    for(const key of Object.keys(whDayLabels)){
+      c=whPdfText(c,whDayLabels[key]+": "+whDuration(types[key]),45,y,9,false);y-=16;
+    }
+    y-=10;
     c=whPdfText(c,"Summary by Worker",45,y,14,true);y-=28;
     c=whPdfText(c,"Worker",45,y,9,true);c=whPdfText(c,"Days",280,y,9,true);c=whPdfText(c,"Hours",350,y,9,true);c=whPdfText(c,"OT",440,y,9,true);y-=20;
     if(!people.length){c=whPdfText(c,"No entries for this period.",45,y,10,false);y-=22}
@@ -1172,7 +1212,7 @@ async function saveWorkHoursPdf(){
     detailHeader();
     for(const r of rows){
       if(y<70){pages.push(c);pageNo++;c=whPdfPage(title,period,pageNo);y=650;c=whPdfText(c,"Detailed Entries (continued)",45,y,14,true);y-=28;detailHeader()}
-      c=whPdfText(c,r.date||"",45,y,8,false);
+      c=whPdfText(c,(r.date||"")+" "+(whDayType(r.date)==="weekday"?"WD":whDayType(r.date)==="saturday"?"SAT":whDayType(r.date)==="sunday"?"SUN":"HOL"),45,y,7,false);
       c=whPdfText(c,(r.worker||"").slice(0,17),110,y,8,false);
       c=whPdfText(c,((r.start||"")+"-"+(r.end||"")).slice(0,14),220,y,8,false);
       c=whPdfText(c,whDuration(whHours(r)),315,y,8,false);
@@ -1212,9 +1252,10 @@ function renderWorkHoursReport(){
   <div class="report" style="color:#13233a;background:#fff">
     <div style="text-align:center;margin-bottom:18px"><h2 style="margin:0">MGV • Staff Work Hours</h2><div class="muted">${whReportMode==="week"?"Weekly Report":"Monthly Report"}</div><h3>${esc(label)}</h3></div>
     <div class="row" style="gap:8px;margin-bottom:14px"><div class="card" style="flex:1;margin:0"><div class="meta">Total Hours</div><div class="card-title">${whDuration(total)}</div></div><div class="card" style="flex:1;margin:0"><div class="meta">Overtime</div><div class="card-title">${whDuration(ot)}</div></div></div>
+    ${whDayBreakdownHtml(rows)}
     <h3>Summary by Worker</h3>
     ${people.length?`<table class="report-table" style="color:#13233a"><tr><th>Worker</th><th>Days</th><th>Hours</th><th>OT</th></tr>${people.map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.days.size}</td><td>${whDuration(v.h)}</td><td>${whDuration(v.o)}</td></tr>`).join("")}</table>`:'<div class="empty">No entries for this period.</div>'}
-    ${rows.length?`<h3 style="margin-top:20px">Detailed Entries</h3><table class="report-table" style="color:#13233a"><tr><th>Date</th><th>Worker</th><th>Time</th><th>Hours</th><th>OT</th><th>Property / Project</th></tr>${rows.map(x=>`<tr><td>${fmt(x.date)}</td><td>${esc(x.worker||"")}</td><td>${esc((x.start||"")+(x.start||x.end?" – ":"")+(x.end||""))}</td><td>${whDuration(whHours(x))}</td><td>${whDuration(whEntryOvertime(x))}</td><td>${esc(x.property||"")}${x.notes?`<div class="meta">${esc(x.notes)}</div>`:""}</td></tr>`).join("")}</table>`:""}
+    ${rows.length?`<h3 style="margin-top:20px">Detailed Entries</h3><table class="report-table" style="color:#13233a"><tr><th>Date / Type</th><th>Worker</th><th>Time</th><th>Hours</th><th>OT</th><th>Property / Project</th></tr>${rows.map(x=>`<tr><td>${fmt(x.date)}<div class="meta">${esc(whHolidayName(x.date)||whDayLabels[whDayType(x.date)])}</div></td><td>${esc(x.worker||"")}</td><td>${esc((x.start||"")+(x.start||x.end?" – ":"")+(x.end||""))}</td><td>${whDuration(whHours(x))}</td><td>${whDuration(whEntryOvertime(x))}</td><td>${esc(x.property||"")}${x.notes?`<div class="meta">${esc(x.notes)}</div>`:""}</td></tr>`).join("")}</table>`:""}
   </div>
   <div class="row no-print" style="gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn soft" onclick="shiftWorkHoursReport(-1)">◀ Previous</button>
