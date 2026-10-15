@@ -1054,7 +1054,7 @@ function whDailyOvertime(worker,date){
  const entries=(data.workHours||[]).filter(x=>x.worker===worker&&x.date===date);
  const sum=entries.reduce((a,x)=>a+whHours(x),0);
  const manual=entries.find(x=>x.overtimeOverride!==undefined&&x.overtimeOverride!==null&&x.overtimeOverride!=='');
- return manual?Math.max(0,Number(manual.overtimeOverride)||0):Math.max(0,Math.round(sum*60)-480)/60;
+ return manual?Math.max(0,Number(manual.overtimeOverride)||0):Math.max(0,Math.round(sum*60)-510)/60;
 }
 function whEntryOvertime(entry){
  const entries=(data.workHours||[]).filter(x=>x.worker===entry.worker&&x.date===entry.date).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
@@ -1257,7 +1257,7 @@ function editWorkHour(i=""){
  <div class="section-head"><h2>Work periods</h2></div><div class="meta">Enter each location and time range separately. Breaks are not counted.</div>
  <div id="whPeriods"></div>
  <button class="btn soft" type="button" onclick="addWHPeriod()">+ Add Work Period</button>
- <div class="field" style="margin-top:14px"><label>Overtime</label><div class="meta">Automatic after 8h per worker/day. Leave blank for automatic calculation.</div><input id="whOT" type="number" min="0" step="0.25" placeholder="Automatic" value="${group.find(v=>v.overtimeOverride!==undefined&&v.overtimeOverride!==null)?.overtimeOverride??''}"></div>
+ <div class="field" style="margin-top:14px"><label>Overtime</label><div class="meta">Automatic after 8h 30m per worker/day. Leave blank for automatic calculation.</div><input id="whOT" type="number" min="0" step="0.25" placeholder="Automatic" value="${group.find(v=>v.overtimeOverride!==undefined&&v.overtimeOverride!==null)?.overtimeOverride??''}"></div>
  <div class="row"><button class="btn soft" onclick="renderWorkHours()">Cancel</button><button class="btn primary" onclick="saveWorkHour('${i}')">Save Day</button></div>
  ${i?`<button class="btn danger" style="width:100%;margin-top:10px" onclick="deleteWHDay('${i}')">Delete Entire Day</button>`:''}</div>`;
  renderWHPeriods();
