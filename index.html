@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b63ce">
-<title>Airbnb Repairs Manager v9.49 Long Term Fixes</title>
+<title>Airbnb Repairs Manager v9.50 Local Photo Storage</title>
 <style>
 :root{
   --blue:#0b63ce;--blue2:#0a4fa8;--light:#eef6ff;--bg:#f5f7fb;--card:#fff;
@@ -551,7 +551,7 @@ body.home-route .app-header{
 .paint-thumb{width:54px;height:54px;border-radius:10px;object-fit:cover;border:1px solid #2a5675}
 .paint-empty{color:#7891a8;font-size:12px;padding:8px 0}
 </style>
-</head>
+<style>.local-photo-info{border:1px solid #28506d;border-radius:14px;padding:10px;margin:8px 0;color:#9fd0ff;font-size:12px}</style></head>
 <body>
 <header class="app-header">
   <div class="header-row">
@@ -671,15 +671,16 @@ function openSafeDB(){
   });
 }
 async function saveToIndexedDB(payload){
+  const db=await openSafeDB();
   try{
-    const db=await openSafeDB();
     await new Promise((resolve,reject)=>{
       const tx=db.transaction(SAFE_DB_STORE,'readwrite');
       tx.objectStore(SAFE_DB_STORE).put(payload,SAFE_DB_KEY);
-      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+      tx.oncomplete=resolve;
+      tx.onerror=()=>reject(tx.error||new Error('IndexedDB write failed'));
+      tx.onabort=()=>reject(tx.error||new Error('IndexedDB write aborted'));
     });
-    db.close();
-  }catch(e){}
+  }finally{db.close()}
 }
 async function loadFromIndexedDB(){
   try{
@@ -751,21 +752,46 @@ function downloadSafetyBackup(){
   a.href=URL.createObjectURL(blob);a.download='airbnb-repairs-SAFE-'+today()+'.json';
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
+// v9.50: Full photo data lives in this phone/browser's IndexedDB, NOT GitHub.
+// Keep the old localStorage copy until the initial full IndexedDB write succeeds.
+let photoStorageReady=false;
+let photoWriteQueue=Promise.resolve();
+let photoStorageWarningShown=false;
+function localMetadataCopy(source){
+  const copy={...source};
+  copy.photos=(source.photos||[]).map(({dataUrl,...meta})=>meta);
+  return copy;
+}
+function photoStorageAlert(error){
+  console.error('Local photo storage failed',error);
+  if(!photoStorageWarningShown){
+    photoStorageWarningShown=true;
+    alert('Photo storage on this device failed. Do NOT delete existing photos or clear browser data. Export a full backup now and check free phone storage.');
+  }
+}
 async function initializeSafeData(){
-  // Normal updates keep data in localStorage. IndexedDB is an additional mirror.
-  // If localStorage is unexpectedly empty but IndexedDB still exists, recover from it.
   try{
     const localRaw=localStorage.getItem(KEY);
     const dbPayload=await loadFromIndexedDB();
-    if((!localRaw || localRaw==='null') && dbPayload && dbPayload.data){
-      data=dbPayload.data;
-      data.buildings=data.buildings||[];data.apartments=data.apartments||[];data.tasks=data.tasks||[];
-      data.photos=data.photos||[];data.purchases=data.purchases||[];data.quotations=data.quotations||[];
-      data.favorites=data.favorites||[];data.inspections=data.inspections||[];data.longTermApartments=data.longTermApartments||[];data.longTermTasks=data.longTermTasks||[];data.longTermInspections=data.longTermInspections||[];data.longTermQuotations=data.longTermQuotations||[];data.workHours=data.workHours||[];data.workers=data.workers||[];data.longTermMaterials=data.longTermMaterials||[];
-      localStorage.setItem(KEY,JSON.stringify(data));
+    const oldLocal=localRaw?JSON.parse(localRaw):null;
+    if(dbPayload&&dbPayload.data){
+      if(!oldLocal){data=dbPayload.data}
+      else{
+        // Keep current local metadata, but restore image bytes from IndexedDB.
+        const imageById=new Map((dbPayload.data.photos||[]).map(p=>[p.id,p]));
+        data.photos=(data.photos||[]).map(p=>p.dataUrl?p:{...p,dataUrl:imageById.get(p.id)?.dataUrl||''});
+        // If local metadata is the light version, IDB also contains the full latest data.
+        if(oldLocal._photoStorageVersion===1){
+          const latest=dbPayload.data;
+          data=latest;
+        }
+      }
     }
+    // Persist ALL photos before reducing localStorage footprint.
     await saveToIndexedDB(safePayload());
-  }catch(e){}
+    photoStorageReady=true;
+    try{localStorage.setItem(KEY,JSON.stringify({...localMetadataCopy(data),_photoStorageVersion:1}))}catch(e){console.warn('Metadata storage full',e)}
+  }catch(e){photoStorageAlert(e)}
 }
 
 let data=loadData(), route='home', selected=null;
@@ -777,10 +803,20 @@ function loadData(){try{
       d.purchases=d.purchases||[];d.quotations=d.quotations||[];d.favorites=d.favorites||[];d.inspections=d.inspections||[];d.longTermApartments=d.longTermApartments||[];d.longTermTasks=d.longTermTasks||[];d.longTermInspections=d.longTermInspections||[];d.longTermQuotations=d.longTermQuotations||[];d.longTermMaterials=d.longTermMaterials||[];d.workHours=d.workHours||[];d.workers=d.workers||[];d.visitHistory=d.visitHistory||{buildings:{},apartments:{}};d.visitHistory.buildings=d.visitHistory.buildings||{};d.visitHistory.apartments=d.visitHistory.apartments||{};return ensureCodesImport(ensureMGVSeed(d))
     }catch(e){return ensureCodesImport(ensureMGVSeed(fresh()))}}
 function save(){
-  localStorage.setItem(KEY,JSON.stringify(data));
-  saveToIndexedDB(safePayload());
+  if(!photoStorageReady){
+    // Never discard images from the original storage before migration completes.
+    try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){photoStorageAlert(e)}
+    return;
+  }
+  const snapshot=structuredClone(data);
+  photoWriteQueue=photoWriteQueue.catch(()=>{}).then(async()=>{
+    await saveToIndexedDB({app:'Airbnb Repairs Manager',backupVersion:3,createdAt:new Date().toISOString(),data:snapshot});
+    try{localStorage.setItem(KEY,JSON.stringify({...localMetadataCopy(snapshot),_photoStorageVersion:1}))}
+    catch(e){console.warn('Metadata localStorage quota reached',e)}
+  }).catch(photoStorageAlert);
   scheduleExternalBackup();
 }
+
 function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function today(){return new Date().toISOString().slice(0,10)}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -2568,7 +2604,7 @@ function renderTaskPhotos(taskId){
   let tabs=types.map(t=>`<button class="photo-tab ${currentPhotoType===t?'active':''}" onclick="currentPhotoType='${t}';showTask('${taskId}')">${t} (${ps.filter(p=>p.type===t).length})</button>`).join('');
   let shown=ps.filter(p=>p.type===currentPhotoType);
   let grid=shown.length?`<div class="photo-grid">${shown.map(p=>`<div class="photo-thumb"><img src="${p.dataUrl}" onclick="openPhotoViewer('${p.id}')"><span class="photo-label">${esc(p.type)}</span><span class="photo-date">${esc(photoDate(p))}</span><button class="photo-delete" onclick="event.stopPropagation();deletePhoto('${p.id}','${taskId}')">×</button></div>`).join('')}</div>`:`<div class="empty">No ${currentPhotoType.toLowerCase()} photos yet.</div>`;
-  return `<div class="photo-section"><div class="section-head"><h2>Photos</h2></div><div class="photo-tabs">${tabs}</div><div class="photo-actions"><button class="small-btn primary" onclick="pickGallery('${taskId}')">🖼 Gallery</button><button class="small-btn soft" onclick="takePhoto('${taskId}')">📷 Camera</button></div>${grid}</div>`
+  return `<div class="photo-section"><div class="section-head"><h2>Photos</h2></div><div class="local-photo-info">📱 Photos are stored locally on this device (IndexedDB). They are not uploaded to GitHub. Keep regular JSON backups.</div><div class="photo-tabs">${tabs}</div><div class="photo-actions"><button class="small-btn primary" onclick="pickGallery('${taskId}')">🖼 Gallery</button><button class="small-btn soft" onclick="takePhoto('${taskId}')">📷 Camera</button></div>${grid}</div>`
 }
 function pickGallery(taskId){
   currentPhotoTask=taskId;
@@ -2592,9 +2628,9 @@ async function storePhotos(files,taskId,type){
       data.photos.push({id:id(),taskId,type,dataUrl,name:file.name||'photo.jpg',createdAt:Date.now()});
     }catch(e){alert('Could not add one of the photos.')}
   }
-  try{save()}catch(e){
-    alert('Storage is full. Export a backup and remove some old photos.');
-  }
+  save();
+  await photoWriteQueue;
+  if(!photoStorageReady)alert('Photo storage is not ready. Export a backup before leaving the app.');
 }
 function resizeImage(file,maxSize,quality){
   return new Promise((resolve,reject)=>{
@@ -3408,7 +3444,7 @@ function importBackup(file){
       d.favorites=Array.isArray(d.favorites)?d.favorites:[];
       d.inspections=Array.isArray(d.inspections)?d.inspections:[];d.longTermApartments=Array.isArray(d.longTermApartments)?d.longTermApartments:[];d.longTermTasks=Array.isArray(d.longTermTasks)?d.longTermTasks:[];d.longTermInspections=Array.isArray(d.longTermInspections)?d.longTermInspections:[];d.longTermQuotations=Array.isArray(d.longTermQuotations)?d.longTermQuotations:[];
       if(confirm('Restore this backup and replace the current local data?')){
-        data=d;save();render();alert('Backup restored successfully.');
+        data=d;save();render();photoWriteQueue.then(()=>alert('Backup restored. Photos are stored locally on this device.')); 
       }
     }catch(e){
       alert('Invalid backup file. Please select a JSON backup created by Airbnb Repairs.');
