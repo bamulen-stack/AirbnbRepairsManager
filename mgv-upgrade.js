@@ -36,6 +36,50 @@ if(typeof originalLT==='function')window.showLongTermTask=async function(i){
  }
  return result;
 };
+
+// Per-task time entries. Stored separately to avoid modifying the existing application database.
+const HOURS_KEY='mgv_task_work_hours_v1';
+function hoursRead(){try{const v=JSON.parse(localStorage.getItem(HOURS_KEY)||'{}');return v&&typeof v==='object'?v:{}}catch(e){return {}}}
+function hoursFor(kind,id){return hoursRead()[kind+':'+id]||[]}
+function hoursWrite(kind,id,entries){const all=hoursRead();all[kind+':'+id]=entries;try{localStorage.setItem(HOURS_KEY,JSON.stringify(all));return true}catch(e){alert('Unable to save work hours. Check available storage and export a backup.');return false}}
+function hoursDuration(x){const [sh,sm]=(x.start||'00:00').split(':').map(Number),[eh,em]=(x.end||'00:00').split(':').map(Number);let minutes=(eh*60+em)-(sh*60+sm);if(minutes<0)minutes+=1440;return Math.max(0,minutes-(Number(x.breakMinutes)||0))}
+function hoursText(minutes){return Math.floor(minutes/60)+'h '+String(minutes%60).padStart(2,'0')+'m'}
+function hoursEscape(x){return escapeHTML(x)}
+function hoursRefresh(kind,id){
+ const node=document.getElementById('mgv-task-hours');if(!node)return;
+ const entries=hoursFor(kind,id),total=entries.reduce((sum,x)=>sum+hoursDuration(x),0);
+ node.innerHTML='<div class="section-head"><h2>⏱️ Work Hours</h2><button type="button" class="small-btn primary" id="mgv-add-hours">+ Add Hours</button></div>'+
+ '<div class="card" style="padding:14px"><b>Total: '+hoursText(total)+'</b>'+
+ (entries.length?entries.map(x=>'<div style="border-top:1px solid #38526a;padding:12px 0;margin-top:10px"><b>'+hoursEscape(x.date)+'</b> · '+hoursEscape(x.technician||'Technician')+'<div class="meta">'+hoursEscape(x.start)+'–'+hoursEscape(x.end)+' · Break '+(x.breakMinutes||0)+' min · <b>'+hoursText(hoursDuration(x))+'</b></div><div class="row" style="gap:8px;margin-top:8px"><button type="button" class="small-btn soft mgv-edit-hours" data-id="'+hoursEscape(x.id)+'">Edit</button><button type="button" class="small-btn danger mgv-delete-hours" data-id="'+hoursEscape(x.id)+'">Delete</button></div></div>').join(''):'<p class="meta">No work hours recorded yet.</p>')+'</div>';
+ node.querySelector('#mgv-add-hours').onclick=()=>hoursEdit(kind,id);
+ node.querySelectorAll('.mgv-edit-hours').forEach(b=>b.onclick=()=>hoursEdit(kind,id,b.dataset.id));
+ node.querySelectorAll('.mgv-delete-hours').forEach(b=>b.onclick=()=>{if(confirm('Delete this work hours entry?')){hoursWrite(kind,id,entries.filter(x=>x.id!==b.dataset.id));hoursRefresh(kind,id)}});
+}
+function hoursEdit(kind,id,entryId){
+ const entry=hoursFor(kind,id).find(x=>x.id===entryId)||{};
+ document.getElementById('mgv-hours-dialog')?.remove();
+ const shade=document.createElement('div');shade.id='mgv-hours-dialog';shade.style.cssText='position:fixed;inset:0;z-index:999998;background:#0009;display:flex;align-items:flex-end;justify-content:center';
+ const today=new Date().toLocaleDateString('en-CA');
+ shade.innerHTML='<form style="width:min(100%,520px);max-height:90vh;overflow:auto;background:#102c48;color:white;border-radius:22px 22px 0 0;padding:22px;box-sizing:border-box"><h2>⏱️ '+(entryId?'Edit':'Add')+' Work Hours</h2>'+
+ [['date','Date','date',entry.date||today],['technician','Technician','text',entry.technician||(kind==='long'?ltTask(id)?.technician:data.tasks.find(t=>t.id===id)?.technician)||''],['start','Start time','time',entry.start||'09:00'],['end','End time','time',entry.end||'17:00'],['breakMinutes','Break (minutes)','number',entry.breakMinutes??0]].map(([name,label,type,value])=>'<label style="display:block;margin:10px 0">'+label+'<input name="'+name+'" type="'+type+'" '+(name==='breakMinutes'?'min="0" max="1440"':'')+' required value="'+hoursEscape(value)+'" style="display:block;width:100%;box-sizing:border-box;padding:12px;border-radius:9px;border:1px solid #7992a8;margin-top:5px;font-size:16px"></label>').join('')+
+ '<div class="row" style="gap:8px"><button class="btn primary" type="submit">Save Hours</button><button class="btn soft" type="button" id="mgv-hours-cancel">Cancel</button></div></form>';
+ document.body.appendChild(shade);shade.querySelector('#mgv-hours-cancel').onclick=()=>shade.remove();shade.onclick=e=>{if(e.target===shade)shade.remove()};
+ shade.querySelector('form').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),record={id:entryId||('h'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),date:String(fd.get('date')),technician:String(fd.get('technician')),start:String(fd.get('start')),end:String(fd.get('end')),breakMinutes:Number(fd.get('breakMinutes'))||0};const list=hoursFor(kind,id);const updated=entryId?list.map(x=>x.id===entryId?record:x):[...list,record];if(hoursWrite(kind,id,updated)){shade.remove();hoursRefresh(kind,id)}};
+}
+function hoursMount(kind,id){const view=document.getElementById('view');if(!view)return;view.querySelector('#mgv-task-hours')?.remove();const section=document.createElement('section');section.id='mgv-task-hours';section.style.margin='18px 0';const controls=view.querySelector('.row:last-child');if(controls)controls.before(section);else view.appendChild(section);hoursRefresh(kind,id)}
+function hoursReportSection(kind,id){const entries=hoursFor(kind,id);return '<section><h3>Work Hours</h3>'+(entries.length?'<table><thead><tr><th>Date</th><th>Technician</th><th>Start–End</th><th>Break</th><th>Hours</th></tr></thead><tbody>'+entries.map(x=>'<tr><td>'+hoursEscape(x.date)+'</td><td>'+hoursEscape(x.technician)+'</td><td>'+hoursEscape(x.start)+'–'+hoursEscape(x.end)+'</td><td>'+(x.breakMinutes||0)+' min</td><td>'+hoursText(hoursDuration(x))+'</td></tr>').join('')+'</tbody></table><p><b>Total hours: '+hoursText(entries.reduce((n,x)=>n+hoursDuration(x),0))+'</b></p>':'<p>No work hours recorded.</p>')+'</section>'}
+const priorLongTask=window.showLongTermTask;
+if(typeof priorLongTask==='function')window.showLongTermTask=async function(id){const result=await priorLongTask.apply(this,arguments);hoursMount('long',id);return result};
+const priorTask=window.showTask;
+if(typeof priorTask==='function')window.showTask=function(id){const result=priorTask.apply(this,arguments);hoursMount('airbnb',id);return result};
+const priorPdf=window.mgvLongTermPDF;
+window.mgvLongTermPDF=async function(id){await priorPdf(id);const report=document.getElementById('mgv-print-report');if(report){const foot=report.querySelector('footer');if(foot)foot.insertAdjacentHTML('beforebegin',hoursReportSection('long',id));else report.insertAdjacentHTML('beforeend',hoursReportSection('long',id))}};
+// Export a complete standalone hours backup; the main app backup does not include this add-on storage.
+window.mgvExportHours=function(){const blob=new Blob([JSON.stringify({version:1,workHours:hoursRead()},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='MGV_Work_Hours_Backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+window.mgvImportHours=function(){const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{try{const obj=JSON.parse(await input.files[0].text());if(!obj.workHours||typeof obj.workHours!=='object')throw Error('Invalid hours backup');if(!confirm('Restore work hours from this backup? Existing work hours will be replaced.'))return;localStorage.setItem(HOURS_KEY,JSON.stringify(obj.workHours));alert('Work hours restored. Open the task again.')}catch(e){alert('Restore failed: '+e.message)}};input.click()};
+const hoursBackupButtons=document.createElement('div');hoursBackupButtons.id='mgv-hours-backup';hoursBackupButtons.style.cssText='position:fixed;bottom:90px;right:10px;z-index:500;display:none';hoursBackupButtons.innerHTML='<button type="button" onclick="mgvExportHours()">Export Hours Backup</button> <button type="button" onclick="mgvImportHours()">Restore Hours Backup</button>';
+document.body.appendChild(hoursBackupButtons);
+const hoursBackupLink=document.createElement('button');hoursBackupLink.type='button';hoursBackupLink.textContent='⏱️ Hours Backup';hoursBackupLink.style.cssText='position:fixed;right:12px;bottom:82px;z-index:490;background:#1768c2;color:white;border:0;border-radius:12px;padding:9px 12px;font-size:12px';hoursBackupLink.onclick=()=>{hoursBackupButtons.style.display=hoursBackupButtons.style.display==='none'?'block':'none'};document.body.appendChild(hoursBackupLink);
 // Maintain browser history for internal page navigation.
 const pages=['showLongTerm','showLongTermApartment','showLongTermTask','showLongTermInspection','showLongTermMaterials','showLongTermQuotation','showTask','showApartment','showBuilding','showInspection'];
 const originals={};let restoring=false,last='';
