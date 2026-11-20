@@ -5,19 +5,17 @@ const css=`#mgv-print-report{position:fixed;inset:0;z-index:999999;overflow:auto
 const style=document.createElement('style');style.textContent=css;document.head.appendChild(style);
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Print a self-contained document to avoid the main app's global @media print rules.
-window.mgvPrintReport=async function(){
+window.mgvPrintReport=function(){
  const report=document.getElementById('mgv-print-report');if(!report)return;
- const frame=document.createElement('iframe');frame.setAttribute('title','MGV PDF print');
- frame.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:0';
- document.body.appendChild(frame);
- const doc=frame.contentDocument;
- const reportCopy=report.cloneNode(true);
- reportCopy.querySelectorAll('.mgv-report-actions').forEach(n=>n.remove());
- const printCss=`@page{size:A4;margin:14mm}html,body{margin:0!important;padding:0!important;background:white!important;color:#14253c!important;font:14px Arial,sans-serif!important}*{box-sizing:border-box}#mgv-print-report{position:static!important;inset:auto!important;overflow:visible!important;display:block!important;background:white!important;color:#14253c!important;padding:0!important;font:14px Arial,sans-serif!important}#mgv-print-report header{background:#0a3760!important;color:white!important;padding:18px!important;border-radius:8px!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}#mgv-print-report h1{font-size:26px;margin:0}#mgv-print-report h3{color:#1160aa;border-bottom:2px solid #cde4f6;padding:8px 0}#mgv-print-report section{margin:14px 0;break-inside:avoid}#mgv-print-report table{border-collapse:collapse;width:100%}#mgv-print-report th,#mgv-print-report td{border:1px solid #ddd;padding:7px;text-align:left}#mgv-print-report .mgv-report-photos{display:grid;grid-template-columns:1fr 1fr;gap:12px}#mgv-print-report figure{margin:0;break-inside:avoid}#mgv-print-report figure img{width:100%;max-height:300px;object-fit:contain}#mgv-print-report footer{border-top:1px solid #ddd;color:#777;padding:12px;font-size:11px}`;
- doc.open();doc.write('<!doctype html><html><head><meta charset="utf-8"><title>MGV Task Report</title><style>'+printCss+'</style></head><body>'+reportCopy.outerHTML+'</body></html>');doc.close();
- try{await Promise.all(Array.from(doc.images).map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;setTimeout(resolve,5000)})));await new Promise(r=>setTimeout(r,250));frame.contentWindow.focus();frame.contentWindow.print();}
- catch(err){alert('Unable to open PDF print: '+(err.message||err));}
- finally{setTimeout(()=>frame.remove(),60000)}
+ // Open a real browser document rather than printing a 1px offscreen iframe.
+ // Android Chrome frequently prints that hidden iframe as blank pages.
+ const tab=window.open('','_blank');
+ if(!tab){alert('Allow pop-ups for this site, then try PDF Report again.');return;}
+ const copy=report.cloneNode(true);
+ copy.querySelectorAll('.mgv-report-actions').forEach(n=>n.remove());
+ const printCss=`@page{size:A4;margin:14mm}html,body{margin:0;padding:0;background:#fff;color:#14253c;font:14px Arial,sans-serif}*{box-sizing:border-box}body{padding:12mm}header{background:#0a3760;color:white;padding:18px;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}h1{font-size:26px;margin:0}h3{color:#1160aa;border-bottom:2px solid #cde4f6;padding:8px 0}section{margin:14px 0;break-inside:avoid}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:7px;text-align:left}.mgv-report-photos{display:grid;grid-template-columns:1fr 1fr;gap:12px}figure{margin:0;break-inside:avoid}figure img{width:100%;max-height:300px;object-fit:contain}footer{border-top:1px solid #ddd;color:#777;padding:12px;font-size:11px}#mgv-print-report{position:static!important;inset:auto!important;overflow:visible!important;background:#fff!important;color:#14253c!important;padding:0!important}#print-action{position:sticky;top:0;background:#fff;padding:12px;z-index:2}#print-action button{background:#0b63ce;color:white;border:0;border-radius:8px;padding:12px 20px;font-size:16px}@media print{body{padding:0}#print-action{display:none!important}}`;
+ const html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MGV Task Report</title><style>'+printCss+'</style></head><body><div id="print-action"><button onclick="window.print()">📄 Save as PDF / Print</button></div>'+copy.outerHTML+'</body></html>';
+ tab.document.open();tab.document.write(html);tab.document.close();tab.focus();
 };
 window.mgvLongTermPDF=async function(taskId){
  const t=ltTask(taskId),a=t&&ltApt(t.apartmentId);if(!t||!a)return;
@@ -64,7 +62,7 @@ function hoursRefresh(kind,id){
  const node=document.getElementById('mgv-task-hours');if(!node)return;
  const entries=hoursFor(kind,id),total=entries.reduce((sum,x)=>sum+hoursDuration(x),0);
  node.innerHTML='<div class="section-head"><h2>⏱️ Work Hours</h2><button type="button" class="small-btn primary" id="mgv-add-hours">+ Add Hours</button></div>'+
- '<div class="card" style="padding:14px"><b>Total: '+hoursText(total)+'</b>'+
+ '<div class="card" style="padding:14px"><b>Total: '+hoursText(total)+'</b><div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="small-btn soft" onclick="mgvExportHours()">Backup Hours</button><button type="button" class="small-btn soft" onclick="mgvImportHours()">Restore Hours</button></div>'+
  (entries.length?entries.map(x=>'<div style="border-top:1px solid #38526a;padding:12px 0;margin-top:10px"><b>'+hoursEscape(x.date)+'</b> · '+hoursEscape(x.technician||'Technician')+'<div class="meta">'+hoursEscape(x.start)+'–'+hoursEscape(x.end)+' · Break '+(x.breakMinutes||0)+' min · <b>'+hoursText(hoursDuration(x))+'</b></div><div class="row" style="gap:8px;margin-top:8px"><button type="button" class="small-btn soft mgv-edit-hours" data-id="'+hoursEscape(x.id)+'">Edit</button><button type="button" class="small-btn danger mgv-delete-hours" data-id="'+hoursEscape(x.id)+'">Delete</button></div></div>').join(''):'<p class="meta">No work hours recorded yet.</p>')+'</div>';
  node.querySelector('#mgv-add-hours').onclick=()=>hoursEdit(kind,id);
  node.querySelectorAll('.mgv-edit-hours').forEach(b=>b.onclick=()=>hoursEdit(kind,id,b.dataset.id));
@@ -92,10 +90,7 @@ window.mgvLongTermPDF=async function(id){await priorPdf(id);const report=documen
 // Export a complete standalone hours backup; the main app backup does not include this add-on storage.
 window.mgvExportHours=function(){const blob=new Blob([JSON.stringify({version:1,workHours:hoursRead()},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='MGV_Work_Hours_Backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 window.mgvImportHours=function(){const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{try{const obj=JSON.parse(await input.files[0].text());if(!obj.workHours||typeof obj.workHours!=='object')throw Error('Invalid hours backup');if(!confirm('Restore work hours from this backup? Existing work hours will be replaced.'))return;localStorage.setItem(HOURS_KEY,JSON.stringify(obj.workHours));alert('Work hours restored. Open the task again.')}catch(e){alert('Restore failed: '+e.message)}};input.click()};
-const hoursBackupButtons=document.createElement('div');hoursBackupButtons.id='mgv-hours-backup';hoursBackupButtons.style.cssText='position:fixed;bottom:90px;right:10px;z-index:500;display:none';hoursBackupButtons.innerHTML='<button type="button" onclick="mgvExportHours()">Export Hours Backup</button> <button type="button" onclick="mgvImportHours()">Restore Hours Backup</button>';
-document.body.appendChild(hoursBackupButtons);
-const hoursBackupLink=document.createElement('button');hoursBackupLink.type='button';hoursBackupLink.textContent='⏱️ Hours Backup';hoursBackupLink.style.cssText='position:fixed;right:12px;bottom:82px;z-index:490;background:#1768c2;color:white;border:0;border-radius:12px;padding:9px 12px;font-size:12px';hoursBackupLink.onclick=()=>{hoursBackupButtons.style.display=hoursBackupButtons.style.display==='none'?'block':'none'};document.body.appendChild(hoursBackupLink);
-// Maintain browser history for internal page navigation.
+// Backup controls are available inside each task's Work Hours section only.
 const pages=['showLongTerm','showLongTermApartment','showLongTermTask','showLongTermInspection','showLongTermMaterials','showLongTermQuotation','showTask','showApartment','showBuilding','showInspection'];
 const originals={};let restoring=false,last='';
 function remember(name,args){if(restoring)return;const key=JSON.stringify([name,args]);if(key===last)return;try{history.pushState({mgvPage:name,mgvArgs:args},'',location.href);last=key}catch(e){}}
