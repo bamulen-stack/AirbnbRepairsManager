@@ -4,6 +4,21 @@
 const css=`#mgv-print-report{position:fixed;inset:0;z-index:999999;overflow:auto;background:white;color:#14253c;padding:18px;font:15px Arial,sans-serif}#mgv-print-report header{background:#0a3760;color:white;padding:22px;border-radius:12px}#mgv-print-report h1{font-size:30px;margin:0}#mgv-print-report h1 small{font-size:11px;display:block}#mgv-print-report h3{color:#1160aa;border-bottom:2px solid #cde4f6;padding:8px 0}#mgv-print-report section{margin:18px 0;break-inside:avoid}#mgv-print-report table{border-collapse:collapse;width:100%}#mgv-print-report th,#mgv-print-report td{border:1px solid #ddd;padding:8px;text-align:left}#mgv-print-report th{background:#e9f3fd}#mgv-print-report .mgv-report-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#mgv-print-report figure{margin:0;break-inside:avoid}#mgv-print-report figure img{width:100%;max-height:340px;object-fit:contain}#mgv-print-report footer{border-top:1px solid #ddd;color:#777;padding:12px;font-size:11px}#mgv-print-report .mgv-report-actions{display:flex;gap:10px}#mgv-print-report .mgv-report-actions button{background:#0b63ce;color:white;border:0;border-radius:8px;padding:12px}@media print{body>*:not(#mgv-print-report){display:none!important}html,body{background:white!important}#mgv-print-report{position:static!important;overflow:visible!important;padding:0!important}#mgv-print-report .mgv-report-actions{display:none!important}#mgv-print-report header{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4;margin:13mm}}`;
 const style=document.createElement('style');style.textContent=css;document.head.appendChild(style);
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Print a self-contained document to avoid the main app's global @media print rules.
+window.mgvPrintReport=async function(){
+ const report=document.getElementById('mgv-print-report');if(!report)return;
+ const frame=document.createElement('iframe');frame.setAttribute('title','MGV PDF print');
+ frame.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:0';
+ document.body.appendChild(frame);
+ const doc=frame.contentDocument;
+ const reportCopy=report.cloneNode(true);
+ reportCopy.querySelectorAll('.mgv-report-actions').forEach(n=>n.remove());
+ const printCss=`@page{size:A4;margin:14mm}html,body{margin:0!important;padding:0!important;background:white!important;color:#14253c!important;font:14px Arial,sans-serif!important}*{box-sizing:border-box}#mgv-print-report{position:static!important;inset:auto!important;overflow:visible!important;display:block!important;background:white!important;color:#14253c!important;padding:0!important;font:14px Arial,sans-serif!important}#mgv-print-report header{background:#0a3760!important;color:white!important;padding:18px!important;border-radius:8px!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}#mgv-print-report h1{font-size:26px;margin:0}#mgv-print-report h3{color:#1160aa;border-bottom:2px solid #cde4f6;padding:8px 0}#mgv-print-report section{margin:14px 0;break-inside:avoid}#mgv-print-report table{border-collapse:collapse;width:100%}#mgv-print-report th,#mgv-print-report td{border:1px solid #ddd;padding:7px;text-align:left}#mgv-print-report .mgv-report-photos{display:grid;grid-template-columns:1fr 1fr;gap:12px}#mgv-print-report figure{margin:0;break-inside:avoid}#mgv-print-report figure img{width:100%;max-height:300px;object-fit:contain}#mgv-print-report footer{border-top:1px solid #ddd;color:#777;padding:12px;font-size:11px}`;
+ doc.open();doc.write('<!doctype html><html><head><meta charset="utf-8"><title>MGV Task Report</title><style>'+printCss+'</style></head><body>'+reportCopy.outerHTML+'</body></html>');doc.close();
+ try{await Promise.all(Array.from(doc.images).map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;setTimeout(resolve,5000)})));await new Promise(r=>setTimeout(r,250));frame.contentWindow.focus();frame.contentWindow.print();}
+ catch(err){alert('Unable to open PDF print: '+(err.message||err));}
+ finally{setTimeout(()=>frame.remove(),60000)}
+};
 window.mgvLongTermPDF=async function(taskId){
  const t=ltTask(taskId),a=t&&ltApt(t.apartmentId);if(!t||!a)return;
  await hydrateLTPhotos(t);
@@ -14,7 +29,7 @@ window.mgvLongTermPDF=async function(taskId){
  const photos=images.map((src,j)=>src?'<figure><img src="'+src+'"><figcaption>Photo '+(j+1)+'</figcaption></figure>':'').join('');
  document.getElementById('mgv-print-report')?.remove();
  const wrap=document.createElement('div');wrap.id='mgv-print-report';
- wrap.innerHTML='<div class="mgv-report-actions"><button onclick="window.print()">📄 Print / Save PDF</button><button onclick="document.getElementById(\'mgv-print-report\').remove()">✕ Close</button></div>'+
+ wrap.innerHTML='<div class="mgv-report-actions"><button onclick="window.mgvPrintReport()">📄 Print / Save PDF</button><button onclick="document.getElementById(\'mgv-print-report\').remove()">✕ Close</button></div>'+
  '<header><h1>MGV <small>MYGREEKVACATIONS</small></h1><h2>TECHNICAL WORK REPORT</h2><p>Long Term · '+escapeHTML(a.name)+'</p></header>'+
  '<section><h3>Property & Task</h3><p><b>Apartment:</b> '+escapeHTML(a.name)+'</p><p><b>Address:</b> '+escapeHTML(a.address||'—')+'</p><p><b>Floor:</b> '+escapeHTML(a.floor||'—')+'</p><p><b>Work:</b> '+escapeHTML(t.title)+'</p><p><b>Date:</b> '+fmt(t.date)+'</p><p><b>Technician:</b> '+escapeHTML(t.technician||'—')+'</p><p><b>Status:</b> '+escapeHTML(t.status||'Pending')+' · <b>Priority:</b> '+escapeHTML(t.priority||'Normal')+'</p></section>'+
  (t.description?'<section><h3>Description</h3><p>'+escapeHTML(t.description)+'</p></section>':'')+
